@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { UserSettings } from '@/types';
 import { useToast } from '@/components/ui/toast';
+import { apiLogin, apiSignup } from '@/lib/api';
 import { Check, Eye, EyeOff, Sparkles, ArrowRight, ArrowLeft } from 'lucide-react';
 
 interface OnboardingWizardProps {
@@ -15,27 +16,28 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const [step, setStep] = useState<'auth' | 'profile' | 'work' | 'biz' | 'done'>('auth');
   const [authTab, setAuthTab] = useState<'login' | 'signup' | 'forgot'>('login');
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  // Form states
-  const [email, setEmail] = useState('diksha@example.com');
-  const [password, setPassword] = useState('password123');
-  const [name, setName] = useState('Diksha Jangra');
+  // Form states - Clean empty defaults
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
   const [terms, setTerms] = useState(true);
 
   // Profile setup states
-  const [profession, setProfession] = useState('UI/UX Designer');
-  const [location, setLocation] = useState('Abohar, Punjab, India');
-  const [rate, setRate] = useState<number>(1500);
+  const [profession, setProfession] = useState('');
+  const [location, setLocation] = useState('');
+  const [rate, setRate] = useState<number>(1000);
 
   // Work type chips
   const [selectedChips, setSelectedChips] = useState<string[]>(['Design']);
   const [clientCount, setClientCount] = useState('2–5');
 
   // Business setup
-  const [biz, setBiz] = useState('Diksha Design Studio');
+  const [biz, setBiz] = useState('');
   const [gst, setGst] = useState('');
   const [prefix, setPrefix] = useState('INV');
-  const [bank, setBank] = useState('diksha@upi');
+  const [bank, setBank] = useState('');
 
   const toggleChip = (chip: string) => {
     setSelectedChips(prev =>
@@ -43,28 +45,26 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     );
   };
 
-  const handleLogin = () => {
-    if (!email) {
-      toast('Please enter your email', 'error');
+  const handleLogin = async () => {
+    if (!email || !password) {
+      toast('Please enter your email and password', 'error');
       return;
     }
-    onComplete({
-      name: name || 'Diksha Jangra',
-      profession,
-      email,
-      location,
-      rate,
-      biz,
-      gst,
-      bank,
-      prefix
-    });
-    toast('Logged in successfully!');
+    setLoading(true);
+    try {
+      const res = await apiLogin(email, password);
+      toast(`Welcome back, ${res.user.name || 'User'}!`);
+      onComplete(res.user);
+    } catch (err: any) {
+      toast(err.message || 'Invalid email or password', 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSignup = () => {
-    if (!name || !email) {
-      toast('Please fill in your name and email', 'error');
+    if (!name || !email || !password) {
+      toast('Please fill in your name, email, and password', 'error');
       return;
     }
     if (!terms) {
@@ -78,19 +78,29 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     setStep('done');
   };
 
-  const handleEnterApp = () => {
-    onComplete({
-      name,
-      profession,
-      email,
-      location,
-      rate,
-      biz,
-      gst,
-      bank,
-      prefix
-    });
-    toast('Workspace ready! Welcome to FreelanceOS');
+  const handleEnterApp = async () => {
+    setLoading(true);
+    try {
+      const res = await apiSignup({
+        name,
+        email,
+        password,
+        profession: profession || 'Freelancer',
+        location,
+        hourlyRate: rate,
+        biz: biz || `${name}'s Studio`,
+        gst,
+        bank,
+        prefix
+      });
+      toast('Workspace ready! Welcome to FreelanceOS');
+      onComplete(res.user);
+    } catch (err: any) {
+      toast(err.message || 'Signup failed', 'error');
+      setStep('auth');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

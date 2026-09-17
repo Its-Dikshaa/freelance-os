@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { connectDB } from './config/db';
 
+import authRoutes from './routes/authRoutes';
 import userRoutes from './routes/userRoutes';
 import projectRoutes from './routes/projectRoutes';
 import taskRoutes from './routes/taskRoutes';
@@ -10,6 +11,7 @@ import clientRoutes from './routes/clientRoutes';
 import invoiceRoutes from './routes/invoiceRoutes';
 import paymentRoutes from './routes/paymentRoutes';
 import seedRoutes from './routes/seedRoutes';
+import { runInitialMigration } from './config/initMigration';
 
 dotenv.config();
 
@@ -21,6 +23,7 @@ app.use(cors());
 app.use(express.json());
 
 // API Routes
+app.use('/api/auth', authRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/tasks', taskRoutes);
@@ -270,6 +273,7 @@ app.get('/', (req, res) => {
 // Boot Server & Database
 const startServer = async () => {
   await connectDB();
+  await runInitialMigration();
   app.listen(PORT, () => {
     console.log(`[Express] FreelanceOS backend server listening on http://localhost:${PORT}`);
   });

@@ -1,67 +1,77 @@
-import { Router, Request, Response } from 'express';
+import { Router, Response } from 'express';
 import Client from '../models/Client';
-import mongoose from 'mongoose';
+import { authenticateToken, AuthenticatedRequest } from '../middleware/authMiddleware';
 
 const router = Router();
 
-let inMemoryClients = [
-  { id: "c1", name: "Rohan Sharma", company: "LogiTech Ltd", email: "rohan@logitech.io", phone: "+91 98765 43210", totalBilled: 125000, status: "Active", projectsCount: 2, avatar: "RS" },
-  { id: "c2", name: "Sarah Jenkins", company: "BrokerPad Inc", email: "sarah@brokerpad.com", phone: "+1 415 555 0192", totalBilled: 55000, status: "Active", projectsCount: 1, avatar: "SJ" },
-  { id: "c3", name: "Ananya Roy", company: "PetWorld Pvt", email: "ananya@petworld.co", phone: "+91 91234 56789", totalBilled: 40000, status: "Active", projectsCount: 1, avatar: "AR" },
-  { id: "c4", name: "Vikram Malhotra", company: "LuxFinance", email: "vikram@luxpay.io", phone: "+91 99887 76655", totalBilled: 70000, status: "Active", projectsCount: 1, avatar: "VM" },
-  { id: "c5", name: "David Miller", company: "AgriTech Co", email: "david@agrirent.org", phone: "+1 212 555 0143", totalBilled: 95000, status: "Active", projectsCount: 1, avatar: "DM" },
-  { id: "c6", name: "Pooja Verma", company: "EaseWell Health", email: "pooja@easewell.in", phone: "+91 98111 22334", totalBilled: 35000, status: "Lead", projectsCount: 1, avatar: "PV" }
-];
+router.use(authenticateToken);
 
-router.get('/', async (req: Request, res: Response) => {
-  if (mongoose.connection.readyState === 1) {
-    try {
-      const clients = await Client.find().sort({ createdAt: -1 });
-      return res.json(clients);
-    } catch {
-      return res.json(inMemoryClients);
-    }
+// GET /api/clients - Get current user's clients ONLY
+router.get('/', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const clients = await Client.find({ userId: req.userId }).sort({ createdAt: -1 });
+    return res.json(clients);
+  } catch (err: any) {
+    console.error('[Get Clients Error]', err);
+    return res.status(500).json({ error: 'Failed to fetch clients' });
   }
-  return res.json(inMemoryClients);
 });
 
-router.post('/', async (req: Request, res: Response) => {
-  const newClient = { id: req.body.id || `c_${Date.now()}`, ...req.body };
-  if (mongoose.connection.readyState === 1) {
-    try {
-      const client = new Client(newClient);
-      await client.save();
-    } catch (e) {
-      console.error(e);
-    }
+// POST /api/clients - Create client for current user ONLY
+router.post('/', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const newClientData = {
+      id: req.body.id || `c_${Date.now()}`,
+      userId: req.userId,
+      name: req.body.name,
+      company: req.body.company || req.body.industry || 'Independent Client',
+      email: req.body.email || '',
+      phone: req.body.phone || '',
+      totalBilled: req.body.totalBilled || req.body.value || 0,
+      status: req.body.status || 'Active',
+      projectsCount: req.body.projectsCount || req.body.projects || 0,
+      avatar: req.body.avatar || ''
+    };
+
+    const client = new Client(newClientData);
+    await client.save();
+    return res.status(201).json(client);
+  } catch (err: any) {
+    console.error('[Create Client Error]', err);
+    return res.status(500).json({ error: 'Failed to create client' });
   }
-  inMemoryClients.unshift(newClient);
-  return res.status(201).json(newClient);
 });
 
-router.put('/:id', async (req: Request, res: Response) => {
-  if (mongoose.connection.readyState === 1) {
-    try {
-      await Client.findOneAndUpdate({ id: req.params.id }, req.body);
-    } catch (e) {
-      console.error(e);
+// PUT /api/clients/:id - Update current user's client ONLY
+router.put('/:id', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const updated = await Client.findOneAndUpdate(
+      { id: req.params.id, userId: req.userId },
+      { ...req.body, userId: req.userId },
+      { new: true }
+    );
+    if (!updated) {
+      return res.status(404).json({ error: 'Client not found or access denied' });
     }
+    return res.json(updated);
+  } catch (err: any) {
+    console.error('[Update Client Error]', err);
+    return res.status(500).json({ error: 'Failed to update client' });
   }
-  inMemoryClients = inMemoryClients.map(c => c.id === req.params.id ? { ...c, ...req.body } : c);
-  const updated = inMemoryClients.find(c => c.id === req.params.id);
-  return res.json(updated || req.body);
 });
 
-router.delete('/:id', async (req: Request, res: Response) => {
-  if (mongoose.connection.readyState === 1) {
-    try {
-      await Client.findOneAndDelete({ id: req.params.id });
-    } catch (e) {
-      console.error(e);
+// DELETE /api/clients/:id - Delete current user's client ONLY
+router.delete('/:id', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const deleted = await Client.findOneAndDelete({ id: req.params.id, userId: req.userId });
+    if (!deleted) {
+      return res.status(404).json({ error: 'Client not found or access denied' });
     }
+    return res.json({ message: 'Client deleted successfully' });
+  } catch (err: any) {
+    console.error('[Delete Client Error]', err);
+    return res.status(500).json({ error: 'Failed to delete client' });
   }
-  inMemoryClients = inMemoryClients.filter(c => c.id !== req.params.id);
-  return res.json({ message: 'Client deleted successfully' });
 });
 
 export default router;

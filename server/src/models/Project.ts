@@ -2,6 +2,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IProject extends Document {
   id: string;
+  userId: string;
   name: string;
   client: string;
   clientEmail: string;
@@ -14,7 +15,8 @@ export interface IProject extends Document {
 }
 
 const ProjectSchema: Schema = new Schema({
-  id: { type: String, required: true, unique: true },
+  id: { type: String, required: true },
+  userId: { type: String, required: true, index: true },
   name: { type: String, required: true },
   client: { type: String, required: true },
   clientEmail: { type: String, default: '' },
@@ -25,5 +27,7 @@ const ProjectSchema: Schema = new Schema({
   color: { type: String, default: '#4e7360' },
   description: { type: String, default: '' }
 }, { timestamps: true });
+
+ProjectSchema.index({ userId: 1, id: 1 }, { unique: true });
 
 export default mongoose.model<IProject>('Project', ProjectSchema);

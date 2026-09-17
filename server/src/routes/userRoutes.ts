@@ -1,52 +1,42 @@
-import { Router, Request, Response } from 'express';
+import { Router, Response } from 'express';
 import User from '../models/User';
-import mongoose from 'mongoose';
+import { authenticateToken, AuthenticatedRequest } from '../middleware/authMiddleware';
 
 const router = Router();
 
-let inMemoryUser = {
-  name: 'Diksha Jangra',
-  role: 'UI/UX Designer',
-  email: 'diksha@design.io',
-  studio: 'Studio Diksha',
-  hourlyRate: 85,
-  currency: '₹',
-  gst: 'GSTIN07AAAAA0000A1Z5',
-  paymentNotes: 'Bank Transfer / UPI accepted. Payment due within 15 days.',
-  hasCompletedOnboarding: true
-};
+router.use(authenticateToken);
 
-router.get('/', async (req: Request, res: Response) => {
-  if (mongoose.connection.readyState === 1) {
-    try {
-      let user = await User.findOne();
-      if (!user) {
-        user = await User.create(inMemoryUser);
-      }
-      return res.json(user);
-    } catch {
-      return res.json(inMemoryUser);
+// GET /api/user - Get current logged-in user profile
+router.get('/', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const user = await User.findById(req.userId).select('-password');
+    if (!user) {
+      return res.status(404).json({ error: 'User account not found' });
     }
+    return res.json(user);
+  } catch (err: any) {
+    console.error('[Get User Error]', err);
+    return res.status(500).json({ error: 'Failed to fetch user settings' });
   }
-  return res.json(inMemoryUser);
 });
 
-router.put('/', async (req: Request, res: Response) => {
-  inMemoryUser = { ...inMemoryUser, ...req.body };
-  if (mongoose.connection.readyState === 1) {
-    try {
-      let user = await User.findOne();
-      if (!user) {
-        user = new User(inMemoryUser);
-      } else {
-        Object.assign(user, req.body);
-      }
-      await user.save();
-    } catch (e) {
-      console.error(e);
+// PUT /api/user - Update current logged-in user profile
+router.put('/', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const updated = await User.findByIdAndUpdate(
+      req.userId,
+      { $set: req.body },
+      { new: true }
+    ).select('-password');
+    
+    if (!updated) {
+      return res.status(404).json({ error: 'User account not found' });
     }
+    return res.json(updated);
+  } catch (err: any) {
+    console.error('[Update User Error]', err);
+    return res.status(500).json({ error: 'Failed to update user settings' });
   }
-  return res.json(inMemoryUser);
 });
 
 export default router;

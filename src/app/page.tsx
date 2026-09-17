@@ -13,7 +13,8 @@ import {
   apiCreateProject, apiUpdateProject, apiDeleteProject,
   apiCreateTask, apiUpdateTask, apiDeleteTask,
   apiCreateClient, apiDeleteClient,
-  apiCreateInvoice, apiUpdateInvoice, apiUpdateUser
+  apiCreateInvoice, apiUpdateInvoice, apiUpdateUser,
+  apiGetMe, getAuthToken, clearAuthToken
 } from '@/lib/api';
 
 import { ToastProvider, useToast } from '@/components/ui/toast';
@@ -84,37 +85,54 @@ function MainAppContent() {
   // Delete Confirm states
   const [confirmDeleteObj, setConfirmDeleteObj] = useState<{ type: 'project' | 'client' | 'invoice' | 'task'; id: string } | null>(null);
 
-  // Initialize data on client mount
+  const loadUserData = async () => {
+    const token = getAuthToken();
+    if (!token) {
+      setIsOnboarded(false);
+      setProjects([]);
+      setClients([]);
+      setInvoices([]);
+      setTasks([]);
+      return;
+    }
+
+    try {
+      const userMe = await apiGetMe();
+      if (!userMe) {
+        clearAuthToken();
+        setIsOnboarded(false);
+        setProjects([]);
+        setClients([]);
+        setInvoices([]);
+        setTasks([]);
+        return;
+      }
+
+      setSettings(userMe);
+      setIsOnboarded(true);
+
+      const [apiP, apiC, apiI, apiT] = await Promise.all([
+        apiGetProjects(),
+        apiGetClients(),
+        apiGetInvoices(),
+        apiGetTasks()
+      ]);
+
+      setProjects(apiP || []);
+      setClients(apiC || []);
+      setInvoices(apiI || []);
+      setTasks(apiT || []);
+    } catch (err) {
+      console.warn('[FreelanceOS] Auth check failed:', err);
+      setIsOnboarded(false);
+    }
+  };
+
   useEffect(() => {
     setIsClient(true);
-    const onboardedState = localStorage.getItem(K.ob) === 'true';
-    setIsOnboarded(onboardedState);
-
-    // Initial local load for instant paint
-    setProjects(ld(K.p, defaultProjects));
-    setClients(ld(K.c, defaultClients));
-    setInvoices(ld(K.i, defaultInvoices));
-    setTasks(ld(K.t, defaultTasks));
-    setSettings(ld(K.s, defaultSettings));
     setActLog(ld(K.a, defaultActivity));
     setGoalTarget(ld(K.g, 500000));
-
-    // Async REST API sync with backend
-    Promise.all([
-      apiGetProjects(),
-      apiGetClients(),
-      apiGetInvoices(),
-      apiGetTasks(),
-      apiGetUser()
-    ]).then(([apiP, apiC, apiI, apiT, apiS]) => {
-      if (apiP && apiP.length > 0) setProjects(apiP);
-      if (apiC && apiC.length > 0) setClients(apiC);
-      if (apiI && apiI.length > 0) setInvoices(apiI);
-      if (apiT && apiT.length > 0) setTasks(apiT);
-      if (apiS) setSettings(apiS);
-    }).catch(err => {
-      console.warn('API sync fallback to local storage', err);
-    });
+    loadUserData();
   }, []);
 
   const addActivity = (text: string, color = '#3d5a4c') => {
@@ -347,17 +365,26 @@ function MainAppContent() {
     }
   };
 
-  const handleOnboardingComplete = (newSettings: Partial<UserSettings>) => {
-    const updated = { ...settings, ...newSettings };
-    setSettings(updated);
-    sv(K.s, updated);
-    localStorage.setItem(K.ob, 'true');
+  const handleOnboardingComplete = async (newSettings: Partial<UserSettings>) => {
     setIsOnboarded(true);
+    await loadUserData();
   };
 
   const handleLogout = () => {
     if (confirm('Are you sure you want to log out of FreelanceOS?')) {
+      clearAuthToken();
       localStorage.removeItem(K.ob);
+      localStorage.removeItem(K.p);
+      localStorage.removeItem(K.c);
+      localStorage.removeItem(K.i);
+      localStorage.removeItem(K.t);
+      localStorage.removeItem(K.s);
+      sessionStorage.clear();
+      setProjects([]);
+      setClients([]);
+      setInvoices([]);
+      setTasks([]);
+      setSettings(defaultSettings);
       setIsOnboarded(false);
       toast('Logged out successfully!');
     }

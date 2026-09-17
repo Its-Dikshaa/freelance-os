@@ -1,39 +1,44 @@
-import { Router, Request, Response } from 'express';
+import { Router, Response } from 'express';
 import Payment from '../models/Payment';
-import mongoose from 'mongoose';
+import { authenticateToken, AuthenticatedRequest } from '../middleware/authMiddleware';
 
 const router = Router();
 
-let inMemoryPayments = [
-  { id: "pay1", txId: "TXN-882910", invoiceNum: "INV-2026-001", client: "LogiTech Ltd", amount: 45000, date: "2026-02-14", method: "Direct Transfer", status: "Completed" },
-  { id: "pay2", txId: "TXN-773821", invoiceNum: "INV-2026-002", client: "BrokerPad Inc", amount: 30000, date: "2026-02-24", method: "UPI", status: "Completed" },
-  { id: "pay3", txId: "TXN-661922", invoiceNum: "INV-2026-000", client: "AgriTech Co", amount: 35000, date: "2026-01-20", method: "Direct Transfer", status: "Completed" }
-];
+router.use(authenticateToken);
 
-router.get('/', async (req: Request, res: Response) => {
-  if (mongoose.connection.readyState === 1) {
-    try {
-      const payments = await Payment.find().sort({ createdAt: -1 });
-      return res.json(payments);
-    } catch {
-      return res.json(inMemoryPayments);
-    }
+// GET /api/payments - Get current user's payments ONLY
+router.get('/', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const payments = await Payment.find({ userId: req.userId }).sort({ createdAt: -1 });
+    return res.json(payments);
+  } catch (err: any) {
+    console.error('[Get Payments Error]', err);
+    return res.status(500).json({ error: 'Failed to fetch payments' });
   }
-  return res.json(inMemoryPayments);
 });
 
-router.post('/', async (req: Request, res: Response) => {
-  const newPayment = { id: req.body.id || `pay_${Date.now()}`, ...req.body };
-  if (mongoose.connection.readyState === 1) {
-    try {
-      const payment = new Payment(newPayment);
-      await payment.save();
-    } catch (e) {
-      console.error(e);
-    }
+// POST /api/payments - Create payment for current user ONLY
+router.post('/', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const newPaymentData = {
+      id: req.body.id || `pay_${Date.now()}`,
+      userId: req.userId,
+      txId: req.body.txId || `TXN-${Math.floor(100000 + Math.random() * 900000)}`,
+      invoiceNum: req.body.invoiceNum || '',
+      client: req.body.client || '',
+      amount: req.body.amount || 0,
+      date: req.body.date || new Date().toISOString().slice(0, 10),
+      method: req.body.method || 'Direct Transfer',
+      status: req.body.status || 'Completed'
+    };
+
+    const payment = new Payment(newPaymentData);
+    await payment.save();
+    return res.status(201).json(payment);
+  } catch (err: any) {
+    console.error('[Create Payment Error]', err);
+    return res.status(500).json({ error: 'Failed to record payment' });
   }
-  inMemoryPayments.unshift(newPayment);
-  return res.status(201).json(newPayment);
 });
 
 export default router;

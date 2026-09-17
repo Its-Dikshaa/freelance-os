@@ -8,6 +8,7 @@ export interface IInvoiceItem {
 
 export interface IInvoice extends Document {
   id: string;
+  userId: string;
   num: string;
   client: string;
   clientEmail: string;
@@ -19,10 +20,11 @@ export interface IInvoice extends Document {
 }
 
 const InvoiceSchema: Schema = new Schema({
-  id: { type: String, required: true, unique: true },
+  id: { type: String, required: true },
+  userId: { type: String, required: true, index: true },
   num: { type: String, required: true },
   client: { type: String, required: true },
-  clientEmail: { type: String, required: true },
+  clientEmail: { type: String, default: '' },
   amount: { type: Number, required: true, default: 0 },
   status: { type: String, enum: ['Paid', 'Pending', 'Overdue'], default: 'Pending' },
   issueDate: { type: String, required: true },
@@ -33,5 +35,7 @@ const InvoiceSchema: Schema = new Schema({
     rate: { type: Number, required: true, default: 0 }
   }]
 }, { timestamps: true });
+
+InvoiceSchema.index({ userId: 1, id: 1 }, { unique: true });
 
 export default mongoose.model<IInvoice>('Invoice', InvoiceSchema);

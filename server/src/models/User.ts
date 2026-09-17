@@ -4,6 +4,7 @@ export interface IUser extends Document {
   name: string;
   role: string;
   email: string;
+  password?: string;
   studio: string;
   hourlyRate: number;
   currency: string;
@@ -15,7 +16,8 @@ export interface IUser extends Document {
 const UserSchema: Schema = new Schema({
   name: { type: String, required: true, default: 'Diksha Jangra' },
   role: { type: String, required: true, default: 'UI/UX Designer' },
-  email: { type: String, default: 'diksha@design.io' },
+  email: { type: String, required: true, unique: true, lowercase: true, index: true },
+  password: { type: String, required: true },
   studio: { type: String, default: 'Studio Diksha' },
   hourlyRate: { type: Number, default: 85 },
   currency: { type: String, default: '₹' },

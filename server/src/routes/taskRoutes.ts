@@ -1,69 +1,74 @@
-import { Router, Request, Response } from 'express';
+import { Router, Response } from 'express';
 import Task from '../models/Task';
-import mongoose from 'mongoose';
+import { authenticateToken, AuthenticatedRequest } from '../middleware/authMiddleware';
 
 const router = Router();
 
-let inMemoryTasks = [
-  { id: "t1", title: "Wireframes for CRM Leads", project: "FreightAxis CRM", status: "todo", dueDate: "Mar 25", priority: "High" },
-  { id: "t2", title: "Prototype interactions", project: "BrokerPad Redesign", status: "in-progress", dueDate: "Mar 24", priority: "High" },
-  { id: "t3", title: "Client feedback review", project: "FreightAxis CRM", status: "in-review", dueDate: "Mar 22", priority: "Medium" },
-  { id: "t4", title: "Final handoff docs", project: "AgriRent Platform", status: "done", dueDate: "Mar 20", priority: "Low" },
-  { id: "t5", title: "User flow diagram", project: "PawPulse App", status: "in-progress", dueDate: "Mar 30", priority: "Medium" },
-  { id: "t6", title: "Color system finalization", project: "LuxPay Dashboard", status: "todo", dueDate: "Mar 28", priority: "Low" },
-  { id: "t7", title: "Competitive analysis", project: "Ease Well Portal", status: "todo", dueDate: "Apr 2", priority: "Low" },
-  { id: "t8", title: "Component library", project: "BrokerPad Redesign", status: "in-progress", dueDate: "Mar 26", priority: "High" }
-];
+router.use(authenticateToken);
 
-router.get('/', async (req: Request, res: Response) => {
-  if (mongoose.connection.readyState === 1) {
-    try {
-      const tasks = await Task.find().sort({ createdAt: -1 });
-      return res.json(tasks);
-    } catch {
-      return res.json(inMemoryTasks);
-    }
+// GET /api/tasks - Get current user's tasks ONLY
+router.get('/', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const tasks = await Task.find({ userId: req.userId }).sort({ createdAt: -1 });
+    return res.json(tasks);
+  } catch (err: any) {
+    console.error('[Get Tasks Error]', err);
+    return res.status(500).json({ error: 'Failed to fetch tasks' });
   }
-  return res.json(inMemoryTasks);
 });
 
-router.post('/', async (req: Request, res: Response) => {
-  const newTask = { id: req.body.id || `t_${Date.now()}`, ...req.body };
-  if (mongoose.connection.readyState === 1) {
-    try {
-      const task = new Task(newTask);
-      await task.save();
-    } catch (e) {
-      console.error(e);
-    }
+// POST /api/tasks - Create task for current user ONLY
+router.post('/', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const newTaskData = {
+      id: req.body.id || `t_${Date.now()}`,
+      userId: req.userId,
+      title: req.body.title,
+      project: req.body.project || 'General',
+      status: req.body.status || 'todo',
+      dueDate: req.body.dueDate || req.body.due || '',
+      priority: req.body.priority || 'Medium'
+    };
+
+    const task = new Task(newTaskData);
+    await task.save();
+    return res.status(201).json(task);
+  } catch (err: any) {
+    console.error('[Create Task Error]', err);
+    return res.status(500).json({ error: 'Failed to create task' });
   }
-  inMemoryTasks.unshift(newTask);
-  return res.status(201).json(newTask);
 });
 
-router.put('/:id', async (req: Request, res: Response) => {
-  if (mongoose.connection.readyState === 1) {
-    try {
-      await Task.findOneAndUpdate({ id: req.params.id }, req.body);
-    } catch (e) {
-      console.error(e);
+// PUT /api/tasks/:id - Update current user's task ONLY
+router.put('/:id', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const updated = await Task.findOneAndUpdate(
+      { id: req.params.id, userId: req.userId },
+      { ...req.body, userId: req.userId },
+      { new: true }
+    );
+    if (!updated) {
+      return res.status(404).json({ error: 'Task not found or access denied' });
     }
+    return res.json(updated);
+  } catch (err: any) {
+    console.error('[Update Task Error]', err);
+    return res.status(500).json({ error: 'Failed to update task' });
   }
-  inMemoryTasks = inMemoryTasks.map(t => t.id === req.params.id ? { ...t, ...req.body } : t);
-  const updated = inMemoryTasks.find(t => t.id === req.params.id);
-  return res.json(updated || req.body);
 });
 
-router.delete('/:id', async (req: Request, res: Response) => {
-  if (mongoose.connection.readyState === 1) {
-    try {
-      await Task.findOneAndDelete({ id: req.params.id });
-    } catch (e) {
-      console.error(e);
+// DELETE /api/tasks/:id - Delete current user's task ONLY
+router.delete('/:id', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const deleted = await Task.findOneAndDelete({ id: req.params.id, userId: req.userId });
+    if (!deleted) {
+      return res.status(404).json({ error: 'Task not found or access denied' });
     }
+    return res.json({ message: 'Task deleted successfully' });
+  } catch (err: any) {
+    console.error('[Delete Task Error]', err);
+    return res.status(500).json({ error: 'Failed to delete task' });
   }
-  inMemoryTasks = inMemoryTasks.filter(t => t.id !== req.params.id);
-  return res.json({ message: 'Task deleted successfully' });
 });
 
 export default router;
