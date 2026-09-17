@@ -116,10 +116,5 @@ export const defaultSettings: UserSettings = {
   prefix: 'INV'
 };
 
-export const defaultActivity: ActivityItem[] = [
-  { id: 'a1', text: 'Invoice INV-003 sent to LuxFinance', time: '2h ago', color: '#3d5a4c' },
-  { id: 'a2', text: 'FreightAxis CRM updated to 68%', time: '5h ago', color: '#4a7fa5' },
-  { id: 'a3', text: 'New client PetWorld added', time: '1d ago', color: '#c4623a' },
-  { id: 'a4', text: 'INV-002 payment received — ₹27,500', time: '2d ago', color: '#c9963e' },
-  { id: 'a5', text: 'BrokerPad review completed', time: '3d ago', color: '#7a5c8a' },
-];
+export const defaultActivity: ActivityItem[] = [];
+

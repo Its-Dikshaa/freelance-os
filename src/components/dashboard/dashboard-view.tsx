@@ -327,13 +327,17 @@ export function DashboardView({
         <div className="bg-white border border-[#e8e1d7] rounded-[18px] p-5 shadow-sm">
           <h3 className="font-serif-playfair text-[15px] font-medium text-[#2c2825] mb-4">Recent Activity</h3>
           <div className="space-y-3">
-            {actLog.slice(0, 5).map((a, idx) => (
-              <div key={idx} className="flex gap-3 items-start pb-2.5 border-b border-[#f0ebe3] last:border-none">
-                <div className="w-2 h-2 rounded-full mt-1.5 shrink-0" style={{ backgroundColor: a.color }} />
-                <div className="flex-1 text-[12.5px] text-[#4a4440]">{a.text}</div>
-                <div className="text-[10.5px] text-[#b5a898] shrink-0">{a.time}</div>
-              </div>
-            ))}
+            {actLog.length === 0 ? (
+              <div className="text-center py-6 text-[#b5a898] text-[13px]">No recent activity yet</div>
+            ) : (
+              actLog.slice(0, 5).map((a, idx) => (
+                <div key={idx} className="flex gap-3 items-start pb-2.5 border-b border-[#f0ebe3] last:border-none">
+                  <div className="w-2 h-2 rounded-full mt-1.5 shrink-0" style={{ backgroundColor: a.color }} />
+                  <div className="flex-1 text-[12.5px] text-[#4a4440]">{a.text}</div>
+                  <div className="text-[10.5px] text-[#b5a898] shrink-0">{a.time}</div>
+                </div>
+              ))
+            )}
           </div>
         </div>
 

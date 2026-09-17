@@ -53,6 +53,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     setLoading(true);
     try {
       const res = await apiLogin(email, password);
+      localStorage.setItem('fos_user_onboarded', 'true');
       toast(`Welcome back, ${res.user.name || 'User'}!`);
       onComplete(res.user);
     } catch (err: any) {
@@ -62,7 +63,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     }
   };
 
-  const handleSignup = () => {
+  const handleSignup = async () => {
     if (!name || !email || !password) {
       toast('Please fill in your name, email, and password', 'error');
       return;
@@ -71,7 +72,22 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       toast('Please accept the Terms to continue', 'error');
       return;
     }
-    setStep('profile');
+
+    setLoading(true);
+    try {
+      await apiSignup({
+        name,
+        email,
+        password,
+        profession: 'Freelancer',
+        biz: `${name}'s Studio`
+      });
+      setStep('profile');
+    } catch (err: any) {
+      toast(err.message || 'Signup failed', 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleFinishSetup = () => {
@@ -81,23 +97,25 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const handleEnterApp = async () => {
     setLoading(true);
     try {
-      const res = await apiSignup({
+      const userObj = {
         name,
         email,
-        password,
         profession: profession || 'Freelancer',
         location,
         hourlyRate: rate,
-        biz: biz || `${name}'s Studio`,
+        biz: biz || `${name || 'Freelancer'}'s Studio`,
         gst,
         bank,
         prefix
-      });
+      };
+
+      await apiUpdateUser(userObj);
+      localStorage.setItem('fos_user_onboarded', 'true');
       toast('Workspace ready! Welcome to FreelanceOS');
-      onComplete(res.user);
+      onComplete(userObj);
     } catch (err: any) {
-      toast(err.message || 'Signup failed', 'error');
-      setStep('auth');
+      localStorage.setItem('fos_user_onboarded', 'true');
+      onComplete({ name, email });
     } finally {
       setLoading(false);
     }
