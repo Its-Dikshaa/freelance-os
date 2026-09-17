@@ -1,7 +1,8 @@
 import { Project, Task, Client, Invoice, Payment, UserSettings } from '@/types';
 import { defaultProjects, defaultTasks, defaultClients, defaultInvoices, defaultPayments, defaultSettings } from './storage';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050/api';
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050/api';
+
 
 async function fetchWithFallback<T>(url: string, fallbackData: T): Promise<T> {
   try {
