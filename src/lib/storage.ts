@@ -88,14 +88,14 @@ export const defaultInvoices: Invoice[] = [
 ];
 
 export const defaultTasks: Task[] = [
-  { id: 't1', title: 'Wireframes for CRM Leads', project: 'FreightAxis CRM', due: 'Mar 25', status: 'Todo' },
-  { id: 't2', title: 'Color system finalization', project: 'LuxPay Dashboard', due: 'Mar 28', status: 'Todo' },
-  { id: 't3', title: 'Prototype interactions', project: 'BrokerPad Redesign', due: 'Mar 24', status: 'InProgress' },
-  { id: 't4', title: 'User flow diagram', project: 'PawPulse App', due: 'Mar 30', status: 'InProgress' },
-  { id: 't5', title: 'Client feedback review', project: 'FreightAxis CRM', due: 'Mar 22', status: 'Review' },
-  { id: 't6', title: 'Final handoff docs', project: 'AgriRent Platform', due: 'Mar 20', status: 'Done' },
-  { id: 't7', title: 'Competitive analysis', project: 'Ease Well Portal', due: 'Apr 2', status: 'Todo' },
-  { id: 't8', title: 'Component library', project: 'BrokerPad Redesign', due: 'Mar 26', status: 'InProgress' },
+  { id: 't1', title: 'Wireframes for CRM Leads', project: 'FreightAxis CRM', due: '2026-09-25', status: 'Todo' },
+  { id: 't2', title: 'Color system finalization', project: 'LuxPay Dashboard', due: '2026-09-28', status: 'Todo' },
+  { id: 't3', title: 'Prototype interactions', project: 'BrokerPad Redesign', due: '2026-09-14', status: 'InProgress' },
+  { id: 't4', title: 'User flow diagram', project: 'PawPulse App', due: '2026-09-30', status: 'InProgress' },
+  { id: 't5', title: 'Client feedback review', project: 'FreightAxis CRM', due: '2026-09-12', status: 'Review' },
+  { id: 't6', title: 'Final handoff docs', project: 'AgriRent Platform', due: '2026-09-20', status: 'Done' },
+  { id: 't7', title: 'Competitive analysis', project: 'Ease Well Portal', due: '2026-10-02', status: 'Todo' },
+  { id: 't8', title: 'Component library', project: 'BrokerPad Redesign', due: '2026-09-26', status: 'InProgress' },
 ];
 
 export const defaultPayments: Payment[] = [

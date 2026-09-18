@@ -3,9 +3,10 @@
 import React, { useState } from 'react';
 import { Invoice, InvoiceStatus, Client, UserSettings } from '@/types';
 import { fmF } from '@/lib/storage';
+import { formatDisplayDate, isOverdue } from '@/lib/date-utils';
 import { API_BASE_URL } from '@/lib/api';
 import { useToast } from '@/components/ui/toast';
-import { Plus, Eye, Edit2, Mail, CheckCircle2, Trash2, Download, X, Copy } from 'lucide-react';
+import { Plus, Eye, Edit2, Mail, CheckCircle2, Trash2, Download, X, Copy, AlertTriangle } from 'lucide-react';
 
 interface InvoicesViewProps {
   invoices: Invoice[];
@@ -291,31 +292,36 @@ export function InvoicesView({
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-          {list.map(inv => (
-            <div
-              key={inv.id}
-              className="bg-white border border-[#e8e1d7] rounded-[18px] p-4.5 shadow-sm relative overflow-hidden hover:-translate-y-1 hover:shadow-md transition-all flex flex-col justify-between"
-            >
+          {list.map(inv => {
+            const actualStatus: InvoiceStatus = (inv.status === 'Unpaid' && isOverdue(inv.due)) ? 'Overdue' : inv.status;
+            return (
               <div
-                className="absolute top-0 left-0 w-1 h-full"
-                style={{ backgroundColor: statusColors[inv.status] }}
-              />
+                key={inv.id}
+                className="bg-white border border-[#e8e1d7] rounded-[18px] p-4.5 shadow-sm relative overflow-hidden hover:-translate-y-1 hover:shadow-md transition-all flex flex-col justify-between"
+              >
+                <div
+                  className="absolute top-0 left-0 w-1 h-full"
+                  style={{ backgroundColor: statusColors[actualStatus] }}
+                />
 
-              <div className="pl-1">
-                <div className="flex justify-between items-start">
-                  <span className="text-[10.5px] font-bold text-[#b5a898] uppercase tracking-wider">{inv.num}</span>
-                  <div className="font-serif-playfair text-[20px] font-medium text-[#2c2825]">{fmF(inv.amount)}</div>
+                <div className="pl-1">
+                  <div className="flex justify-between items-start">
+                    <span className="text-[10.5px] font-bold text-[#b5a898] uppercase tracking-wider">{inv.num}</span>
+                    <div className="font-serif-playfair text-[20px] font-medium text-[#2c2825]">{fmF(inv.amount)}</div>
+                  </div>
+
+                  <div className="text-[13.5px] font-medium text-[#2c2825] mt-1">{inv.client}</div>
+                  <div className="text-[11px] text-[#b5a898] mt-0.5">
+                    Issued {formatDisplayDate(inv.date, false)} · Due {formatDisplayDate(inv.due, false)}
+                  </div>
+
+                  <div className="mt-2.5">
+                    <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 ${statusBadges[actualStatus]}`}>
+                      {actualStatus === 'Overdue' && <AlertTriangle className="w-3 h-3" />}
+                      {actualStatus}
+                    </span>
+                  </div>
                 </div>
-
-                <div className="text-[13.5px] font-medium text-[#2c2825] mt-1">{inv.client}</div>
-                <div className="text-[11px] text-[#b5a898] mt-0.5">Issued {inv.date} · Due {inv.due}</div>
-
-                <div className="mt-2.5">
-                  <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full ${statusBadges[inv.status]}`}>
-                    {inv.status}
-                  </span>
-                </div>
-              </div>
 
               <div className="flex items-center justify-between gap-1.5 mt-4 pt-3 border-t border-[#f0ebe3]">
                 <button
@@ -353,7 +359,8 @@ export function InvoicesView({
                 </button>
               </div>
             </div>
-          ))}
+          );
+        })}
         </div>
       )}
 

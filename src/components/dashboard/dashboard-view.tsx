@@ -3,7 +3,8 @@
 import React, { useState } from 'react';
 import { Project, Client, Invoice, Task, UserSettings, ActivityItem } from '@/types';
 import { fm, fmF } from '@/lib/storage';
-import { ArrowUpRight, TrendingUp, TrendingDown, Clock, Plus, CheckCircle, FileText, UserPlus, FolderPlus } from 'lucide-react';
+import { formatDisplayDate, isOverdue } from '@/lib/date-utils';
+import { ArrowUpRight, TrendingUp, TrendingDown, Clock, Plus, CheckCircle, FileText, UserPlus, FolderPlus, AlertTriangle } from 'lucide-react';
 import { PageId } from '../layout/sidebar';
 
 interface DashboardViewProps {
@@ -255,22 +256,31 @@ export function DashboardView({
             {mergedDeadlines.length === 0 ? (
               <div className="text-center py-6 text-[#b5a898] text-[13px]">No deadlines coming up</div>
             ) : (
-              mergedDeadlines.map((d, i) => (
-                <div
-                  key={i}
-                  onClick={() => onNavigate(d.type)}
-                  className="flex items-center gap-3 p-2.5 rounded-[9px] hover:bg-[#f7f4ef] cursor-pointer transition-colors border-b border-[#f0ebe3] last:border-none"
-                >
-                  <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[12.5px] font-medium text-[#2c2825] truncate">{d.title}</div>
-                    <div className="text-[11px] text-[#b5a898] truncate">{d.sub}</div>
+              mergedDeadlines.map((d, i) => {
+                const overdue = isOverdue(d.date);
+                return (
+                  <div
+                    key={i}
+                    onClick={() => onNavigate(d.type)}
+                    className="flex items-center gap-3 p-2.5 rounded-[9px] hover:bg-[#f7f4ef] cursor-pointer transition-colors border-b border-[#f0ebe3] last:border-none"
+                  >
+                    <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: overdue ? '#c4623a' : d.color }} />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[12.5px] font-medium text-[#2c2825] truncate">{d.title}</div>
+                      <div className="text-[11px] text-[#b5a898] truncate">{d.sub}</div>
+                    </div>
+                    {overdue ? (
+                      <div className="text-[10.5px] font-semibold text-[#c4623a] bg-[#c4623a]/12 border border-[#c4623a]/25 px-2.5 py-0.5 rounded-full whitespace-nowrap flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3" /> Overdue • {formatDisplayDate(d.date, false)}
+                      </div>
+                    ) : (
+                      <div className="text-[11px] font-semibold text-[#4a4440] bg-[#f0ebe3] px-2.5 py-1 rounded-full whitespace-nowrap">
+                        {formatDisplayDate(d.date, false)}
+                      </div>
+                    )}
                   </div>
-                  <div className="text-[11px] font-semibold text-[#4a4440] bg-[#f0ebe3] px-2.5 py-1 rounded-full whitespace-nowrap">
-                    {d.date}
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>

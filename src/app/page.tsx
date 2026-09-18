@@ -16,6 +16,8 @@ import {
   apiCreateInvoice, apiUpdateInvoice, apiUpdateUser,
   apiGetMe, getAuthToken, clearAuthToken
 } from '@/lib/api';
+import { toIsoDate, formatDisplayDate, isOverdue, getDaysDiff } from '@/lib/date-utils';
+import { AlertTriangle, Clock } from 'lucide-react';
 
 import { ToastProvider, useToast } from '@/components/ui/toast';
 import { Modal } from '@/components/ui/modal';
@@ -191,12 +193,12 @@ function MainAppContent() {
       setFormIDesc(item.desc);
     } else if (type === 'task') {
       const item = tasks.find(t => t.id === id) || {
-        title: '', project: projects[0]?.name || '', due: '', status: extraStatus || 'Todo'
+        title: '', project: projects[0]?.name || '', due: new Date().toISOString().slice(0, 10), status: extraStatus || 'Todo'
       };
       setFormTTitle(item.title);
       setFormTProject(item.project || (projects[0]?.name || ''));
       setFormTStatus(item.status);
-      setFormTDue(item.due);
+      setFormTDue(toIsoDate(item.due || new Date().toISOString().slice(0, 10)));
     }
   };
 
@@ -736,7 +738,8 @@ function MainAppContent() {
                 type="text"
                 value={formTTitle}
                 onChange={e => setFormTTitle(e.target.value)}
-                className="w-full bg-[#f7f4ef] border border-[#e8e1d7] rounded-[10px] px-3.5 py-2.5 text-[13px] outline-none"
+                placeholder="e.g. Wireframe redesign"
+                className="w-full bg-[#f7f4ef] border border-[#e8e1d7] rounded-[10px] px-3.5 py-2.5 text-[13px] outline-none focus:border-[#2c2825]"
               />
             </div>
             <div>
@@ -744,7 +747,7 @@ function MainAppContent() {
               <select
                 value={formTProject}
                 onChange={e => setFormTProject(e.target.value)}
-                className="w-full bg-[#f7f4ef] border border-[#e8e1d7] rounded-[10px] px-3.5 py-2.5 text-[13px] outline-none cursor-pointer"
+                className="w-full bg-[#f7f4ef] border border-[#e8e1d7] rounded-[10px] px-3.5 py-2.5 text-[13px] outline-none cursor-pointer focus:border-[#2c2825]"
               >
                 {projects.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
               </select>
@@ -755,7 +758,7 @@ function MainAppContent() {
                 <select
                   value={formTStatus}
                   onChange={e => setFormTStatus(e.target.value as TaskStatus)}
-                  className="w-full bg-[#f7f4ef] border border-[#e8e1d7] rounded-[10px] px-3.5 py-2.5 text-[13px] outline-none"
+                  className="w-full bg-[#f7f4ef] border border-[#e8e1d7] rounded-[10px] px-3.5 py-2.5 text-[13px] outline-none cursor-pointer focus:border-[#2c2825]"
                 >
                   <option value="Todo">To Do</option>
                   <option value="InProgress">In Progress</option>
@@ -766,14 +769,22 @@ function MainAppContent() {
               <div>
                 <label className="text-[10.5px] font-bold text-[#7a706a] uppercase tracking-wider block mb-1">Due Date</label>
                 <input
-                  type="text"
-                  value={formTDue}
+                  type="date"
+                  value={toIsoDate(formTDue)}
                   onChange={e => setFormTDue(e.target.value)}
-                  placeholder="e.g. Mar 30"
-                  className="w-full bg-[#f7f4ef] border border-[#e8e1d7] rounded-[10px] px-3.5 py-2.5 text-[13px] outline-none"
+                  className="w-full bg-[#f7f4ef] border border-[#e8e1d7] rounded-[10px] px-3.5 py-2.5 text-[13px] outline-none cursor-pointer font-sans-outfit text-[#2c2825] focus:border-[#2c2825]"
                 />
               </div>
             </div>
+
+            {isOverdue(formTDue) && formTStatus !== 'Done' && (
+              <div className="bg-[#c4623a]/10 border border-[#c4623a]/30 text-[#c4623a] rounded-[10px] p-3 text-[12px] font-medium flex items-center gap-2.5 animate-fade-in">
+                <AlertTriangle className="w-4 h-4 shrink-0 text-[#c4623a]" />
+                <div>
+                  <strong>Overdue Task:</strong> Due date was {formatDisplayDate(formTDue)} ({getDaysDiff(formTDue).days} days ago).
+                </div>
+              </div>
+            )}
           </div>
         )}
       </Modal>

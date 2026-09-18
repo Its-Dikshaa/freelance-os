@@ -3,7 +3,8 @@
 import React, { useState } from 'react';
 import { Project, ProjectStatus } from '@/types';
 import { fmF } from '@/lib/storage';
-import { Plus, Edit2, Trash2 } from 'lucide-react';
+import { formatDisplayDate, isOverdue } from '@/lib/date-utils';
+import { Plus, Edit2, Trash2, AlertTriangle } from 'lucide-react';
 
 interface ProjectsViewProps {
   projects: Project[];
@@ -100,7 +101,19 @@ export function ProjectsView({ projects, onOpenModal, onConfirmDelete, searchTex
                     </div>
                   </td>
                   <td className="py-3 px-3 text-[13px] font-semibold text-[#2c2825]">{fmF(p.budget)}</td>
-                  <td className="py-3 px-3 text-[12px] text-[#b5a898]">{p.deadline || '—'}</td>
+                  <td className="py-3 px-3 text-[12px]">
+                    {p.deadline ? (
+                      isOverdue(p.deadline) && p.status !== 'Done' ? (
+                        <span className="bg-[#c4623a]/12 text-[#c4623a] border border-[#c4623a]/30 text-[10.5px] font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3" /> Overdue • {formatDisplayDate(p.deadline, false)}
+                        </span>
+                      ) : (
+                        <span className="text-[#4a4440]">{formatDisplayDate(p.deadline, false)}</span>
+                      )
+                    ) : (
+                      <span className="text-[#b5a898]">—</span>
+                    )}
+                  </td>
                   <td className="py-3 px-3 text-right">
                     <div className="inline-flex gap-1.5">
                       <button
