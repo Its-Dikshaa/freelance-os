@@ -2,7 +2,7 @@
 
 This document covers all work done in this session, currently **uncommitted** on top of commit `f14b260` (the tip of `main`). It spans three rounds: a security/data-integrity pass, a systemic field-mismatch fix, and an auth-hardening pass. Everything described here has been verified — either by automated test, a live boot against a real (in-memory) MongoDB, or direct `curl` reproduction — not just by reading the code.
 
-**33 files modified, 12 files added.** Full list in the [Files Changed](#files-changed) table at the end.
+**33 files modified, 11 files added.** Full list in the [Files Changed](#files-changed) table at the end.
 
 ---
 
@@ -74,7 +74,7 @@ Existing documents (from before this rename, and from before Round 1's never-mig
 - **The dashboard's "Revenue Overview" chart was fabricated** — six fixed multipliers (`[0.5, 0.68, 0.6, 0.8, 0.72, 0.95]`) applied to the average invoice amount, not real data. Replaced with real monthly sums of Paid invoices bucketed by actual invoice date.
 - **"Reset All Workspace Data" didn't do what it said.** It only ran `localStorage.clear()` (which also silently logged the user out, since the auth token lives in `localStorage` too) despite claiming to "restore default demo data." Now calls the (now-secured) `POST /api/seed` to actually reseed the user's data server-side, then refreshes local state without logging them out.
 
-### Tests & CI (new)
+### Tests (new)
 
 - Restructured the backend for testability: `server/src/app.ts` now exports a `createApp()` builder with no side effects (no DB connection, no `listen()`); `server/src/index.ts` is now boot-only.
 - Added `vitest` + `supertest` + `mongodb-memory-server` (also bumped `@types/node` from `^20` to `^24` to match the actual Node runtime and resolve a peer-dependency conflict).
@@ -82,7 +82,7 @@ Existing documents (from before this rename, and from before Round 1's never-mig
   - `fieldContract.test.ts` — round-trip contract tests proving every field the frontend sends survives a create→read cycle, for Project/Task/Client/Invoice, plus a PUT identity-guard test.
   - `seed.test.ts` — unauthenticated seed rejected; seed only affects the calling user's data.
   - `isolation.test.ts` — one user cannot read, update, or delete another user's records; invalid/missing tokens rejected.
-- Added `.github/workflows/ci.yml` running `tsc`/`eslint` (frontend) and `tsc`/`vitest` (backend) on every push and PR.
+- *(A GitHub Actions workflow was added and then removed in this session — Render/Vercel deploy straight from a push to `main` with no CI gate, and the workflow was interfering with that. Run `npx tsc --noEmit` / `npx eslint src` (frontend) and `npx tsc --noEmit` / `npx vitest run` (backend) manually before pushing instead.)*
 
 **Live verification performed:** stood up a standalone in-memory MongoDB, booted the real server against it, and ran the exact scenario that was broken — signup, create a Project/Task/Client/Invoice with every previously-lost field, then re-fetch (simulating a reload). Every field came back correct. Also hand-inserted documents in the old field format and confirmed the boot-time migration renamed them correctly (9 fields/statuses normalized, matching exactly what was inserted).
 
@@ -137,11 +137,10 @@ Existing documents (from before this rename, and from before Round 1's never-mig
 | `src/lib/storage.ts` | Removed unused sample-data exports |
 | `src/types/index.ts` | Added `Invoice.clientEmail`, removed dead `Invoice.gst` |
 
-### Added (12)
+### Added (11)
 
 | File | Purpose |
 |---|---|
-| `.github/workflows/ci.yml` | CI: type-check + lint (frontend), type-check + tests (backend) |
 | `server/src/app.ts` | Testable Express app builder, separated from boot logic |
 | `server/src/middleware/rateLimiters.ts` | Login/signup rate limiters |
 | `server/src/utils/sanitizeUpdate.ts` | Strips identity fields from PUT bodies |
