@@ -155,3 +155,4 @@ Existing documents (from before this rename, and from before Round 1's never-mig
 | `server/vitest.config.mts` | Test runner configuration |
 
 *Not tracked by git (correctly gitignored): `server/.env`, a local test-only `JWT_SECRET` created for verification during this session. Replace it with a real secret before any actual use.*
+
