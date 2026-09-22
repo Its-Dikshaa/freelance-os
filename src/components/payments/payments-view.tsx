@@ -1,25 +1,32 @@
 'use client';
 
 import React from 'react';
-import { Invoice } from '@/types';
+import { Invoice, Payment } from '@/types';
 import { fmF } from '@/lib/storage';
 
 interface PaymentsViewProps {
+  payments: Payment[];
   invoices: Invoice[];
   searchText: string;
-  onViewInvoice: (id: string) => void;
+  onViewInvoice: (invoiceNum: string) => void;
 }
 
-export function PaymentsView({ invoices, searchText, onViewInvoice }: PaymentsViewProps) {
-  const paidInvoices = invoices.filter(i => i.status === 'Paid');
-  const totalReceived = paidInvoices.reduce((a, i) => a + Number(i.amount), 0);
+const statusBadges: Record<Payment['status'], string> = {
+  Completed: 'bg-[#3d5a4c]/10 text-[#3d5a4c]',
+  Processing: 'bg-[#c9963e]/12 text-[#c9963e]',
+  Failed: 'bg-[#c4623a]/10 text-[#c4623a]'
+};
+
+export function PaymentsView({ payments, invoices, searchText, onViewInvoice }: PaymentsViewProps) {
+  const completedPayments = payments.filter(p => p.status === 'Completed');
+  const totalReceived = completedPayments.reduce((a, p) => a + Number(p.amount), 0);
   const pendingCollection = invoices.filter(i => i.status !== 'Paid').reduce((a, i) => a + Number(i.amount), 0);
 
-  let list = [...paidInvoices];
+  let list = [...payments];
   if (searchText) {
-    list = list.filter(i =>
-      i.num.toLowerCase().includes(searchText.toLowerCase()) ||
-      i.client.toLowerCase().includes(searchText.toLowerCase())
+    list = list.filter(p =>
+      p.invoiceNum.toLowerCase().includes(searchText.toLowerCase()) ||
+      p.client.toLowerCase().includes(searchText.toLowerCase())
     );
   }
 
@@ -37,8 +44,8 @@ export function PaymentsView({ invoices, searchText, onViewInvoice }: PaymentsVi
         </div>
 
         <div className="bg-white border border-[#e8e1d7] rounded-[18px] p-5 shadow-sm">
-          <div className="text-[10.5px] font-semibold text-[#b5a898] uppercase tracking-wider mb-2">Paid Invoices</div>
-          <div className="font-serif-playfair text-[25px] font-medium text-[#2c2825] leading-none">{paidInvoices.length}</div>
+          <div className="text-[10.5px] font-semibold text-[#b5a898] uppercase tracking-wider mb-2">Payments Recorded</div>
+          <div className="font-serif-playfair text-[25px] font-medium text-[#2c2825] leading-none">{payments.length}</div>
         </div>
       </div>
 
@@ -47,6 +54,7 @@ export function PaymentsView({ invoices, searchText, onViewInvoice }: PaymentsVi
         <table className="w-full border-collapse text-left">
           <thead>
             <tr className="text-[10px] uppercase tracking-wider text-[#b5a898] border-b border-[#e8e1d7]">
+              <th className="pb-3 px-3 font-semibold">Tx ID</th>
               <th className="pb-3 px-3 font-semibold">Invoice</th>
               <th className="pb-3 px-3 font-semibold">Client</th>
               <th className="pb-3 px-3 font-semibold">Amount</th>
@@ -59,26 +67,27 @@ export function PaymentsView({ invoices, searchText, onViewInvoice }: PaymentsVi
           <tbody className="divide-y divide-[#f0ebe3]">
             {list.length === 0 ? (
               <tr>
-                <td colSpan={7} className="py-10 text-center text-[#b5a898] text-[13px]">
+                <td colSpan={8} className="py-10 text-center text-[#b5a898] text-[13px]">
                   No payment records found
                 </td>
               </tr>
             ) : (
-              list.map(i => (
-                <tr key={i.id} className="hover:bg-[#f0ebe3]/50 transition-colors text-[13px]">
-                  <td className="py-3 px-3 font-semibold text-[#2c2825]">{i.num}</td>
-                  <td className="py-3 px-3 text-[#4a4440]">{i.client}</td>
-                  <td className="py-3 px-3 font-semibold text-[#3d5a4c]">{fmF(i.amount)}</td>
-                  <td className="py-3 px-3 text-[#7a706a]">{i.date}</td>
-                  <td className="py-3 px-3 text-[#7a706a]">UPI / Direct Transfer</td>
+              list.map(p => (
+                <tr key={p.id} className="hover:bg-[#f0ebe3]/50 transition-colors text-[13px]">
+                  <td className="py-3 px-3 text-[#7a706a]">{p.txId}</td>
+                  <td className="py-3 px-3 font-semibold text-[#2c2825]">{p.invoiceNum}</td>
+                  <td className="py-3 px-3 text-[#4a4440]">{p.client}</td>
+                  <td className="py-3 px-3 font-semibold text-[#3d5a4c]">{fmF(p.amount)}</td>
+                  <td className="py-3 px-3 text-[#7a706a]">{p.date}</td>
+                  <td className="py-3 px-3 text-[#7a706a]">{p.method}</td>
                   <td className="py-3 px-3">
-                    <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full bg-[#3d5a4c]/10 text-[#3d5a4c]">
-                      Paid
+                    <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full ${statusBadges[p.status]}`}>
+                      {p.status}
                     </span>
                   </td>
                   <td className="py-3 px-3 text-right">
                     <button
-                      onClick={() => onViewInvoice(i.id)}
+                      onClick={() => onViewInvoice(p.invoiceNum)}
                       className="px-2.5 py-1 bg-white border border-[#e8e1d7] rounded-[7px] text-[11.5px] text-[#4a4440] hover:bg-[#f0ebe3]"
                     >
                       Receipt

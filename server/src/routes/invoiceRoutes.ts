@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import Invoice from '../models/Invoice';
 import { authenticateToken, AuthenticatedRequest } from '../middleware/authMiddleware';
+import { sanitizeUpdate } from '../utils/sanitizeUpdate';
 
 const router = Router();
 
@@ -11,7 +12,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const invoices = await Invoice.find({ userId: req.userId }).sort({ createdAt: -1 });
     return res.json(invoices);
-  } catch (err: any) {
+  } catch (err) {
     console.error('[Get Invoices Error]', err);
     return res.status(500).json({ error: 'Failed to fetch invoices' });
   }
@@ -27,16 +28,17 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
       client: req.body.client,
       clientEmail: req.body.clientEmail || '',
       amount: req.body.amount || 0,
-      status: req.body.status || 'Pending',
-      issueDate: req.body.date || req.body.issueDate || new Date().toISOString().slice(0, 10),
-      dueDate: req.body.due || req.body.dueDate || '',
+      status: req.body.status || 'Unpaid',
+      date: req.body.date || req.body.issueDate || new Date().toISOString().slice(0, 10),
+      due: req.body.due || req.body.dueDate || '',
+      desc: req.body.desc || '',
       items: req.body.items || [{ desc: req.body.desc || 'Services rendered', qty: 1, rate: req.body.amount || 0 }]
     };
 
     const invoice = new Invoice(newInvoiceData);
     await invoice.save();
     return res.status(201).json(invoice);
-  } catch (err: any) {
+  } catch (err) {
     console.error('[Create Invoice Error]', err);
     return res.status(500).json({ error: 'Failed to create invoice' });
   }
@@ -47,14 +49,14 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const updated = await Invoice.findOneAndUpdate(
       { id: req.params.id, userId: req.userId },
-      { ...req.body, userId: req.userId },
+      { ...sanitizeUpdate(req.body), userId: req.userId },
       { new: true }
     );
     if (!updated) {
       return res.status(404).json({ error: 'Invoice not found or access denied' });
     }
     return res.json(updated);
-  } catch (err: any) {
+  } catch (err) {
     console.error('[Update Invoice Error]', err);
     return res.status(500).json({ error: 'Failed to update invoice' });
   }
@@ -68,7 +70,7 @@ router.delete('/:id', async (req: AuthenticatedRequest, res: Response) => {
       return res.status(404).json({ error: 'Invoice not found or access denied' });
     }
     return res.json({ message: 'Invoice deleted successfully' });
-  } catch (err: any) {
+  } catch (err) {
     console.error('[Delete Invoice Error]', err);
     return res.status(500).json({ error: 'Failed to delete invoice' });
   }
@@ -112,9 +114,10 @@ router.post('/send-email', async (req: AuthenticatedRequest, res: Response) => {
         message: `Email with PDF attachment sent directly to ${to}!`,
         attachmentAttached: true
       });
-    } catch (e: any) {
+    } catch (e) {
       console.error('[Nodemailer Error]', e);
-      return res.status(500).json({ error: 'Failed to send email via SMTP', details: e.message });
+      const message = e instanceof Error ? e.message : 'Unknown error';
+      return res.status(500).json({ error: 'Failed to send email via SMTP', details: message });
     }
   }
 

@@ -31,12 +31,12 @@ export interface Invoice {
   id: string;
   num: string;
   client: string;
+  clientEmail?: string;
   amount: number;
   date: string;
   due: string;
   status: InvoiceStatus;
   desc: string;
-  gst?: boolean;
 }
 
 export interface Task {

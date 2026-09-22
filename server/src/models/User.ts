@@ -5,11 +5,13 @@ export interface IUser extends Document {
   role: string;
   email: string;
   password?: string;
-  studio: string;
+  biz: string;
+  location: string;
   hourlyRate: number;
   currency: string;
   gst: string;
   paymentNotes: string;
+  prefix: string;
   hasCompletedOnboarding: boolean;
 }
 
@@ -18,11 +20,13 @@ const UserSchema: Schema = new Schema({
   role: { type: String, required: true, default: 'UI/UX Designer' },
   email: { type: String, required: true, unique: true, lowercase: true, index: true },
   password: { type: String, required: true },
-  studio: { type: String, default: 'Studio Diksha' },
+  biz: { type: String, default: 'Studio Diksha' },
+  location: { type: String, default: '' },
   hourlyRate: { type: Number, default: 85 },
   currency: { type: String, default: '₹' },
   gst: { type: String, default: 'GSTIN07AAAAA0000A1Z5' },
   paymentNotes: { type: String, default: 'Bank Transfer / UPI accepted. Payment due within 15 days.' },
+  prefix: { type: String, default: 'INV' },
   hasCompletedOnboarding: { type: Boolean, default: true }
 }, { timestamps: true });
 

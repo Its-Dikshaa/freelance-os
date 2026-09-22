@@ -1,19 +1,21 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useSyncExternalStore } from 'react';
 import {
-  Project, Client, Invoice, Task, UserSettings, ActivityItem, ProjectStatus, InvoiceStatus, TaskStatus
+  Project, Client, Invoice, Task, Payment, UserSettings, ActivityItem, ProjectStatus, InvoiceStatus, TaskStatus
 } from '@/types';
 import {
   K, ld, sv, uid, rc, ini,
-  defaultProjects, defaultClients, defaultInvoices, defaultTasks, defaultSettings, defaultActivity
+  defaultSettings, defaultActivity
 } from '@/lib/storage';
 import {
-  apiGetProjects, apiGetClients, apiGetInvoices, apiGetTasks, apiGetUser,
+  apiGetProjects, apiGetClients, apiGetInvoices, apiGetTasks,
   apiCreateProject, apiUpdateProject, apiDeleteProject,
   apiCreateTask, apiUpdateTask, apiDeleteTask,
-  apiCreateClient, apiDeleteClient,
-  apiCreateInvoice, apiUpdateInvoice, apiUpdateUser,
+  apiCreateClient, apiUpdateClient, apiDeleteClient,
+  apiCreateInvoice, apiUpdateInvoice, apiDeleteInvoice, apiUpdateUser,
+  apiGetPayments, apiCreatePayment,
+  apiCheckHealth, apiSeed,
   apiGetMe, getAuthToken, clearAuthToken
 } from '@/lib/api';
 import { toIsoDate, formatDisplayDate, isOverdue, getDaysDiff } from '@/lib/date-utils';
@@ -33,10 +35,21 @@ import { InvoicesView } from '@/components/invoices/invoices-view';
 import { PaymentsView } from '@/components/payments/payments-view';
 import { SettingsView } from '@/components/settings/settings-view';
 
+// Avoids a hydration mismatch without setting state from an effect: renders
+// `false` on the server and on the client's first (matching) pass, then `true`
+// once mounted.
+function useIsClient(): boolean {
+  return useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
+}
+
 function MainAppContent() {
   const { toast } = useToast();
 
-  const [isClient, setIsClient] = useState(false);
+  const isClient = useIsClient();
   const [isOnboarded, setIsOnboarded] = useState(false);
   const [currentPg, setCurrentPg] = useState<PageId>('dashboard');
   const [isOpenMobile, setIsOpenMobile] = useState(false);
@@ -47,14 +60,15 @@ function MainAppContent() {
   const [clients, setClients] = useState<Client[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [apiConnected, setApiConnected] = useState(false);
   const [settings, setSettings] = useState<UserSettings>(defaultSettings);
-  const [actLog, setActLog] = useState<ActivityItem[]>([]);
-  const [goalTarget, setGoalTarget] = useState<number>(500000);
+  const [actLog, setActLog] = useState<ActivityItem[]>(() => ld(K.a, defaultActivity));
+  const [goalTarget, setGoalTarget] = useState<number>(() => ld(K.g, 500000));
 
   // Modal states
   const [activeModal, setActiveModal] = useState<'project' | 'client' | 'invoice' | 'task' | null>(null);
   const [editId, setEditId] = useState<string | undefined>(undefined);
-  const [taskInitialStatus, setTaskInitialStatus] = useState<TaskStatus | undefined>(undefined);
 
   // Modal Form Inputs
   const [formPName, setFormPName] = useState('');
@@ -88,6 +102,8 @@ function MainAppContent() {
   const [confirmDeleteObj, setConfirmDeleteObj] = useState<{ type: 'project' | 'client' | 'invoice' | 'task'; id: string } | null>(null);
 
   const loadUserData = async () => {
+    apiCheckHealth().then(setApiConnected);
+
     const token = getAuthToken();
     if (!token) {
       setIsOnboarded(false);
@@ -95,6 +111,7 @@ function MainAppContent() {
       setClients([]);
       setInvoices([]);
       setTasks([]);
+      setPayments([]);
       return;
     }
 
@@ -107,23 +124,26 @@ function MainAppContent() {
         setClients([]);
         setInvoices([]);
         setTasks([]);
+        setPayments([]);
         return;
       }
 
       setSettings(userMe);
       setIsOnboarded(true);
 
-      const [apiP, apiC, apiI, apiT] = await Promise.all([
+      const [apiP, apiC, apiI, apiT, apiPay] = await Promise.all([
         apiGetProjects(),
         apiGetClients(),
         apiGetInvoices(),
-        apiGetTasks()
+        apiGetTasks(),
+        apiGetPayments()
       ]);
 
       setProjects(apiP || []);
       setClients(apiC || []);
       setInvoices(apiI || []);
       setTasks(apiT || []);
+      setPayments(apiPay || []);
     } catch (err) {
       console.warn('[FreelanceOS] Auth check failed:', err);
       setIsOnboarded(false);
@@ -131,9 +151,9 @@ function MainAppContent() {
   };
 
   useEffect(() => {
-    setIsClient(true);
-    setActLog(ld(K.a, defaultActivity));
-    setGoalTarget(ld(K.g, 500000));
+    // Textbook fetch-on-mount; this rule appears to misfire on async functions
+    // defined outside the effect in this canary eslint-plugin-react-hooks build.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadUserData();
   }, []);
 
@@ -213,7 +233,7 @@ function MainAppContent() {
         const updated = projects.map(p => p.id === editId ? { ...p, ...itemToUpdate } : p);
         setProjects(updated);
         sv(K.p, updated);
-        apiUpdateProject(editId, itemToUpdate);
+        apiUpdateProject(editId, itemToUpdate).catch(err => toast(err.message || 'Failed to sync project update', 'error'));
       } else {
         const newProj: Project = {
           id: uid(), name: formPName, client: formPClient, status: formPStatus, progress: formPProg, budget: formPBudget, deadline: formPDeadline, desc: formPDesc, color: rc()
@@ -221,7 +241,7 @@ function MainAppContent() {
         const updated = [newProj, ...projects];
         setProjects(updated);
         sv(K.p, updated);
-        apiCreateProject(newProj);
+        apiCreateProject(newProj).catch(err => toast(err.message || 'Failed to sync new project', 'error'));
         addActivity(`New project created: ${formPName}`);
       }
     } else if (activeModal === 'client') {
@@ -234,6 +254,7 @@ function MainAppContent() {
         const updated = clients.map(c => c.id === editId ? { ...c, ...itemToUpdate } : c);
         setClients(updated);
         sv(K.c, updated);
+        apiUpdateClient(editId, itemToUpdate).catch(err => toast(err.message || 'Failed to sync client update', 'error'));
       } else {
         const newClient: Client = {
           id: uid(), name: formCName, industry: formCInd, email: formCEmail, phone: formCPhone, notes: formCNotes, projects: 0, value: 0, color: rc(), initials: ini(formCName)
@@ -241,7 +262,7 @@ function MainAppContent() {
         const updated = [newClient, ...clients];
         setClients(updated);
         sv(K.c, updated);
-        apiCreateClient(newClient);
+        apiCreateClient(newClient).catch(err => toast(err.message || 'Failed to sync new client', 'error'));
         addActivity(`New client added: ${formCName}`, '#c4623a');
       }
     } else if (activeModal === 'invoice') {
@@ -254,15 +275,15 @@ function MainAppContent() {
         const updated = invoices.map(i => i.id === editId ? { ...i, ...itemToUpdate } : i);
         setInvoices(updated);
         sv(K.i, updated);
-        apiUpdateInvoice(editId, itemToUpdate);
+        apiUpdateInvoice(editId, itemToUpdate).catch(err => toast(err.message || 'Failed to sync invoice update', 'error'));
       } else {
         const newInv: Invoice = {
-          id: uid(), num: formINum, client: formIClient, amount: formIAmt, date: formIDate, due: formIDue, status: formIStatus, desc: formIDesc, gst: !!settings.gst
+          id: uid(), num: formINum, client: formIClient, amount: formIAmt, date: formIDate, due: formIDue, status: formIStatus, desc: formIDesc
         };
         const updated = [newInv, ...invoices];
         setInvoices(updated);
         sv(K.i, updated);
-        apiCreateInvoice(newInv);
+        apiCreateInvoice(newInv).catch(err => toast(err.message || 'Failed to sync new invoice', 'error'));
         addActivity(`Invoice ${formINum} generated for ${formIClient}`, '#c9963e');
       }
     } else if (activeModal === 'task') {
@@ -275,7 +296,7 @@ function MainAppContent() {
         const updated = tasks.map(t => t.id === editId ? { ...t, ...itemToUpdate } : t);
         setTasks(updated);
         sv(K.t, updated);
-        apiUpdateTask(editId, itemToUpdate);
+        apiUpdateTask(editId, itemToUpdate).catch(err => toast(err.message || 'Failed to sync task update', 'error'));
       } else {
         const newTask: Task = {
           id: uid(), title: formTTitle, project: formTProject, status: formTStatus, due: formTDue
@@ -283,7 +304,7 @@ function MainAppContent() {
         const updated = [newTask, ...tasks];
         setTasks(updated);
         sv(K.t, updated);
-        apiCreateTask(newTask);
+        apiCreateTask(newTask).catch(err => toast(err.message || 'Failed to sync new task', 'error'));
       }
     }
 
@@ -300,21 +321,22 @@ function MainAppContent() {
       const updated = projects.filter(p => p.id !== id);
       setProjects(updated);
       sv(K.p, updated);
-      apiDeleteProject(id);
+      apiDeleteProject(id).catch(err => toast(err.message || 'Failed to sync project deletion', 'error'));
     } else if (type === 'client') {
       const updated = clients.filter(c => c.id !== id);
       setClients(updated);
       sv(K.c, updated);
-      apiDeleteClient(id);
+      apiDeleteClient(id).catch(err => toast(err.message || 'Failed to sync client deletion', 'error'));
     } else if (type === 'invoice') {
       const updated = invoices.filter(i => i.id !== id);
       setInvoices(updated);
       sv(K.i, updated);
+      apiDeleteInvoice(id).catch(err => toast(err.message || 'Failed to sync invoice deletion', 'error'));
     } else if (type === 'task') {
       const updated = tasks.filter(t => t.id !== id);
       setTasks(updated);
       sv(K.t, updated);
-      apiDeleteTask(id);
+      apiDeleteTask(id).catch(err => toast(err.message || 'Failed to sync task deletion', 'error'));
     }
 
     setConfirmDeleteObj(null);
@@ -327,7 +349,17 @@ function MainAppContent() {
     const updated = invoices.map(i => i.id === id ? { ...i, status: 'Paid' as InvoiceStatus } : i);
     setInvoices(updated);
     sv(K.i, updated);
-    apiUpdateInvoice(id, { status: 'Paid' });
+    apiUpdateInvoice(id, { status: 'Paid' })
+      .then(() => apiCreatePayment({
+        invoiceNum: inv.num,
+        client: inv.client,
+        amount: inv.amount,
+        date: new Date().toISOString().slice(0, 10),
+        method: 'Direct Transfer',
+        status: 'Completed'
+      }))
+      .then(newPayment => setPayments(prev => [newPayment, ...prev]))
+      .catch(err => toast(err.message || 'Failed to sync invoice payment status', 'error'));
     addActivity(`Invoice ${inv.num} marked as Paid — ₹${inv.amount.toLocaleString('en-IN')}`, '#3d5a4c');
     toast(`Invoice ${inv.num} marked as Paid!`);
   };
@@ -338,7 +370,7 @@ function MainAppContent() {
     const updated = tasks.map(x => x.id === taskId ? { ...x, status: newStatus } : x);
     setTasks(updated);
     sv(K.t, updated);
-    apiUpdateTask(taskId, { status: newStatus });
+    apiUpdateTask(taskId, { status: newStatus }).catch(err => toast(err.message || 'Failed to sync task status', 'error'));
     addActivity(`Task "${t.title}" moved to ${newStatus}`, '#4a7fa5');
     toast(`Task moved to ${newStatus}`);
   };
@@ -360,14 +392,22 @@ function MainAppContent() {
     toast('Data exported to JSON!');
   };
 
-  const handleResetAll = () => {
-    if (confirm('Are you sure you want to reset all data to defaults?')) {
-      localStorage.clear();
-      window.location.reload();
+  const handleResetAll = async () => {
+    if (!confirm('Are you sure you want to reset all data to defaults? This replaces all your projects, tasks, clients and invoices with sample data.')) return;
+    try {
+      await apiSeed();
+      localStorage.removeItem(K.p);
+      localStorage.removeItem(K.c);
+      localStorage.removeItem(K.i);
+      localStorage.removeItem(K.t);
+      await loadUserData();
+      toast('Workspace reset to default sample data!');
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Failed to reset workspace', 'error');
     }
   };
 
-  const handleOnboardingComplete = async (newSettings: Partial<UserSettings>) => {
+  const handleOnboardingComplete = async () => {
     setIsOnboarded(true);
     await loadUserData();
   };
@@ -421,6 +461,7 @@ function MainAppContent() {
             else if (currentPg === 'clients') handleOpenModal('client');
             else if (currentPg === 'invoices') handleOpenModal('invoice');
           }}
+          apiConnected={apiConnected}
         />
 
         <main className="p-6 sm:p-7 flex-1">
@@ -485,9 +526,10 @@ function MainAppContent() {
 
           {currentPg === 'payments' && (
             <PaymentsView
+              payments={payments}
               invoices={invoices}
               searchText={searchText}
-              onViewInvoice={id => {
+              onViewInvoice={() => {
                 setCurrentPg('invoices');
               }}
             />
@@ -504,6 +546,7 @@ function MainAppContent() {
               onExportJSON={handleExportJSON}
               onResetAll={handleResetAll}
               onLogout={handleLogout}
+              apiConnected={apiConnected}
             />
           )}
         </main>

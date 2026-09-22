@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import Client from '../models/Client';
 import { authenticateToken, AuthenticatedRequest } from '../middleware/authMiddleware';
+import { sanitizeUpdate } from '../utils/sanitizeUpdate';
 
 const router = Router();
 
@@ -11,7 +12,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const clients = await Client.find({ userId: req.userId }).sort({ createdAt: -1 });
     return res.json(clients);
-  } catch (err: any) {
+  } catch (err) {
     console.error('[Get Clients Error]', err);
     return res.status(500).json({ error: 'Failed to fetch clients' });
   }
@@ -24,19 +25,21 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
       id: req.body.id || `c_${Date.now()}`,
       userId: req.userId,
       name: req.body.name,
-      company: req.body.company || req.body.industry || 'Independent Client',
+      industry: req.body.industry || req.body.company || '',
       email: req.body.email || '',
       phone: req.body.phone || '',
-      totalBilled: req.body.totalBilled || req.body.value || 0,
+      value: req.body.value || req.body.totalBilled || 0,
       status: req.body.status || 'Active',
-      projectsCount: req.body.projectsCount || req.body.projects || 0,
-      avatar: req.body.avatar || ''
+      projects: req.body.projects || req.body.projectsCount || 0,
+      color: req.body.color || '#4e7360',
+      initials: req.body.initials || req.body.avatar || '',
+      notes: req.body.notes || ''
     };
 
     const client = new Client(newClientData);
     await client.save();
     return res.status(201).json(client);
-  } catch (err: any) {
+  } catch (err) {
     console.error('[Create Client Error]', err);
     return res.status(500).json({ error: 'Failed to create client' });
   }
@@ -47,14 +50,14 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const updated = await Client.findOneAndUpdate(
       { id: req.params.id, userId: req.userId },
-      { ...req.body, userId: req.userId },
+      { ...sanitizeUpdate(req.body), userId: req.userId },
       { new: true }
     );
     if (!updated) {
       return res.status(404).json({ error: 'Client not found or access denied' });
     }
     return res.json(updated);
-  } catch (err: any) {
+  } catch (err) {
     console.error('[Update Client Error]', err);
     return res.status(500).json({ error: 'Failed to update client' });
   }
@@ -68,7 +71,7 @@ router.delete('/:id', async (req: AuthenticatedRequest, res: Response) => {
       return res.status(404).json({ error: 'Client not found or access denied' });
     }
     return res.json({ message: 'Client deleted successfully' });
-  } catch (err: any) {
+  } catch (err) {
     console.error('[Delete Client Error]', err);
     return res.status(500).json({ error: 'Failed to delete client' });
   }

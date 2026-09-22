@@ -3,8 +3,8 @@
 import React, { useState } from 'react';
 import { UserSettings } from '@/types';
 import { useToast } from '@/components/ui/toast';
-import { apiLogin, apiSignup } from '@/lib/api';
-import { Check, Eye, EyeOff, Sparkles, ArrowRight, ArrowLeft } from 'lucide-react';
+import { apiLogin, apiSignup, apiUpdateUser } from '@/lib/api';
+import { Check, Eye, EyeOff, ArrowRight, ArrowLeft } from 'lucide-react';
 
 interface OnboardingWizardProps {
   onComplete: (settings: Partial<UserSettings>) => void;
@@ -13,8 +13,8 @@ interface OnboardingWizardProps {
 export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const { toast } = useToast();
 
-  const [step, setStep] = useState<'auth' | 'profile' | 'work' | 'biz' | 'done'>('auth');
-  const [authTab, setAuthTab] = useState<'login' | 'signup' | 'forgot'>('login');
+  const [step, setStep] = useState<'auth' | 'profile' | 'biz' | 'done'>('auth');
+  const [authTab, setAuthTab] = useState<'login' | 'signup'>('login');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -29,21 +29,11 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const [location, setLocation] = useState('');
   const [rate, setRate] = useState<number>(1000);
 
-  // Work type chips
-  const [selectedChips, setSelectedChips] = useState<string[]>(['Design']);
-  const [clientCount, setClientCount] = useState('2–5');
-
   // Business setup
   const [biz, setBiz] = useState('');
   const [gst, setGst] = useState('');
   const [prefix, setPrefix] = useState('INV');
   const [bank, setBank] = useState('');
-
-  const toggleChip = (chip: string) => {
-    setSelectedChips(prev =>
-      prev.includes(chip) ? prev.filter(c => c !== chip) : [...prev, chip]
-    );
-  };
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -56,8 +46,8 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       localStorage.setItem('fos_user_onboarded', 'true');
       toast(`Welcome back, ${res.user.name || 'User'}!`);
       onComplete(res.user);
-    } catch (err: any) {
-      toast(err.message || 'Invalid email or password', 'error');
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Invalid email or password', 'error');
     } finally {
       setLoading(false);
     }
@@ -66,6 +56,10 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const handleSignup = async () => {
     if (!name || !email || !password) {
       toast('Please fill in your name, email, and password', 'error');
+      return;
+    }
+    if (password.length < 8) {
+      toast('Password must be at least 8 characters long', 'error');
       return;
     }
     if (!terms) {
@@ -83,8 +77,8 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
         biz: `${name}'s Studio`
       });
       setStep('profile');
-    } catch (err: any) {
-      toast(err.message || 'Signup failed', 'error');
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Signup failed', 'error');
     } finally {
       setLoading(false);
     }
@@ -113,8 +107,9 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       localStorage.setItem('fos_user_onboarded', 'true');
       toast('Workspace ready! Welcome to FreelanceOS');
       onComplete(userObj);
-    } catch (err: any) {
+    } catch (err) {
       localStorage.setItem('fos_user_onboarded', 'true');
+      toast(err instanceof Error ? err.message : 'Could not save your full profile — you can finish it later in Settings', 'error');
       onComplete({ name, email });
     } finally {
       setLoading(false);
@@ -237,9 +232,10 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
                   <button
                     onClick={handleLogin}
-                    className="w-full py-3 bg-[#2c2825] text-[#f7f4ef] rounded-[10px] text-[13px] font-medium hover:bg-[#4a4440] transition-all shadow-md mt-2"
+                    disabled={loading}
+                    className="w-full py-3 bg-[#2c2825] text-[#f7f4ef] rounded-[10px] text-[13px] font-medium hover:bg-[#4a4440] transition-all shadow-md mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    Log In
+                    {loading ? 'Logging in…' : 'Log In'}
                   </button>
                 </div>
               )}
@@ -297,9 +293,10 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
                   <button
                     onClick={handleSignup}
-                    className="w-full py-3 bg-[#2c2825] text-[#f7f4ef] rounded-[10px] text-[13px] font-medium hover:bg-[#4a4440] transition-all shadow-md"
+                    disabled={loading}
+                    className="w-full py-3 bg-[#2c2825] text-[#f7f4ef] rounded-[10px] text-[13px] font-medium hover:bg-[#4a4440] transition-all shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    Create Account →
+                    {loading ? 'Creating account…' : 'Create Account →'}
                   </button>
                 </div>
               )}
@@ -309,10 +306,9 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
           {/* STEP 2: PROFILE */}
           {step === 'profile' && (
             <div className="animate-fade-up">
-              <div className="text-[10.5px] text-[#b5a898] uppercase tracking-wider font-semibold mb-2">Step 1 of 3</div>
+              <div className="text-[10.5px] text-[#b5a898] uppercase tracking-wider font-semibold mb-2">Step 1 of 2</div>
               <div className="flex gap-1.5 mb-6">
                 <div className="h-1 flex-1 bg-[#3d5a4c] rounded-full" />
-                <div className="h-1 flex-1 bg-[#e8e1d7] rounded-full" />
                 <div className="h-1 flex-1 bg-[#e8e1d7] rounded-full" />
               </div>
 
@@ -371,73 +367,6 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                   <ArrowLeft className="w-4 h-4" /> Back
                 </button>
                 <button
-                  onClick={() => setStep('work')}
-                  className="flex-1 py-2.5 bg-[#2c2825] text-[#f7f4ef] rounded-[10px] text-[13px] font-medium hover:bg-[#4a4440] transition-all flex items-center justify-center gap-1.5"
-                >
-                  Continue <ArrowRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* STEP 3: WORK TYPE */}
-          {step === 'work' && (
-            <div className="animate-fade-up">
-              <div className="text-[10.5px] text-[#b5a898] uppercase tracking-wider font-semibold mb-2">Step 2 of 3</div>
-              <div className="flex gap-1.5 mb-6">
-                <div className="h-1 flex-1 bg-[#3d5a4c] rounded-full" />
-                <div className="h-1 flex-1 bg-[#3d5a4c] rounded-full" />
-                <div className="h-1 flex-1 bg-[#e8e1d7] rounded-full" />
-              </div>
-
-              <h2 className="font-serif-playfair text-[22px] font-medium text-[#2c2825] mb-1">What kind of work do you do?</h2>
-              <p className="text-[12.5px] text-[#7a706a] mb-6">Pick what applies — we&apos;ll tailor your dashboard around it.</p>
-
-              <div className="grid grid-cols-2 gap-2.5 mb-5">
-                {['Design', 'Development', 'Writing', 'Marketing', 'Consulting', 'Other'].map(chip => {
-                  const isSelected = selectedChips.includes(chip);
-                  return (
-                    <button
-                      key={chip}
-                      type="button"
-                      onClick={() => toggleChip(chip)}
-                      className={`p-3 border rounded-[10px] text-[12.5px] flex items-center gap-2 transition-all ${
-                        isSelected
-                          ? 'border-[#3d5a4c] bg-[#8fac99]/12 text-[#2c2825] font-medium'
-                          : 'border-[#e8e1d7] text-[#4a4440] hover:border-[#b5a898] hover:bg-[#f0ebe3]'
-                      }`}
-                    >
-                      <Sparkles className={`w-4 h-4 ${isSelected ? 'text-[#3d5a4c]' : 'text-[#b5a898]'}`} />
-                      <span>{chip}</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="mb-6">
-                <label className="text-[10.5px] font-bold text-[#7a706a] uppercase tracking-wider block mb-1">
-                  How many clients do you usually juggle?
-                </label>
-                <select
-                  value={clientCount}
-                  onChange={e => setClientCount(e.target.value)}
-                  className="w-full bg-[#f7f4ef] border border-[#e8e1d7] rounded-[10px] px-3.5 py-2.5 text-[13px] text-[#2c2825] outline-none"
-                >
-                  <option value="Just 1">Just 1</option>
-                  <option value="2–5">2–5</option>
-                  <option value="6–10">6–10</option>
-                  <option value="10+">10+</option>
-                </select>
-              </div>
-
-              <div className="flex gap-2.5">
-                <button
-                  onClick={() => setStep('profile')}
-                  className="px-4 py-2.5 border border-[#e8e1d7] rounded-[10px] text-[13px] text-[#4a4440] hover:bg-[#f0ebe3] transition-all flex items-center gap-1.5"
-                >
-                  <ArrowLeft className="w-4 h-4" /> Back
-                </button>
-                <button
                   onClick={() => setStep('biz')}
                   className="flex-1 py-2.5 bg-[#2c2825] text-[#f7f4ef] rounded-[10px] text-[13px] font-medium hover:bg-[#4a4440] transition-all flex items-center justify-center gap-1.5"
                 >
@@ -447,12 +376,11 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
             </div>
           )}
 
-          {/* STEP 4: BUSINESS */}
+          {/* STEP 3: BUSINESS */}
           {step === 'biz' && (
             <div className="animate-fade-up">
-              <div className="text-[10.5px] text-[#b5a898] uppercase tracking-wider font-semibold mb-2">Step 3 of 3</div>
+              <div className="text-[10.5px] text-[#b5a898] uppercase tracking-wider font-semibold mb-2">Step 2 of 2</div>
               <div className="flex gap-1.5 mb-6">
-                <div className="h-1 flex-1 bg-[#3d5a4c] rounded-full" />
                 <div className="h-1 flex-1 bg-[#3d5a4c] rounded-full" />
                 <div className="h-1 flex-1 bg-[#3d5a4c] rounded-full" />
               </div>
@@ -507,7 +435,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
               <div className="flex gap-2.5">
                 <button
-                  onClick={() => setStep('work')}
+                  onClick={() => setStep('profile')}
                   className="px-4 py-2.5 border border-[#e8e1d7] rounded-[10px] text-[13px] text-[#4a4440] hover:bg-[#f0ebe3] transition-all flex items-center gap-1.5"
                 >
                   <ArrowLeft className="w-4 h-4" /> Back
@@ -535,9 +463,10 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
               <button
                 onClick={handleEnterApp}
-                className="w-full py-3 bg-[#2c2825] text-[#f7f4ef] rounded-[10px] text-[13px] font-medium hover:bg-[#4a4440] transition-all shadow-lg"
+                disabled={loading}
+                className="w-full py-3 bg-[#2c2825] text-[#f7f4ef] rounded-[10px] text-[13px] font-medium hover:bg-[#4a4440] transition-all shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                Go to Dashboard →
+                {loading ? 'Setting up…' : 'Go to Dashboard →'}
               </button>
             </div>
           )}

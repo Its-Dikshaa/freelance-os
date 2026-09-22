@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Task, TaskStatus } from '@/types';
 import { formatDisplayDate, isOverdue } from '@/lib/date-utils';
-import { Plus, Edit2, X, AlertTriangle, Calendar, Clock } from 'lucide-react';
+import { Edit2, X, AlertTriangle, Calendar, Clock } from 'lucide-react';
 
 interface KanbanViewProps {
   tasks: Task[];

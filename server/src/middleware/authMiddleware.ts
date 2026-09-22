@@ -1,7 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 
-export const JWT_SECRET = process.env.JWT_SECRET || 'freelanceos_super_secret_jwt_key_2026';
+const rawJwtSecret = process.env.JWT_SECRET;
+if (!rawJwtSecret) {
+  throw new Error('JWT_SECRET environment variable is required. Set it in server/.env before starting the server.');
+}
+export const JWT_SECRET: string = rawJwtSecret;
 
 export interface AuthenticatedRequest extends Request {
   userId?: string;
@@ -23,7 +27,7 @@ export const authenticateToken = (req: AuthenticatedRequest, res: Response, next
     req.userId = decoded.userId;
     req.userEmail = decoded.email;
     next();
-  } catch (err) {
+  } catch {
     return res.status(403).json({ error: 'Invalid or expired token.' });
   }
 };

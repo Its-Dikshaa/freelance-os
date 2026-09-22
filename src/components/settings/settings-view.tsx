@@ -6,7 +6,7 @@ import { useToast } from '@/components/ui/toast';
 import {
   RotateCcw, Download, Trash2, Save, LogOut, User, FileText,
   ShieldCheck, Database, Building, CreditCard, Mail, MapPin,
-  Sparkles, CheckCircle2, ChevronRight, Briefcase, IndianRupee
+  ChevronRight, IndianRupee
 } from 'lucide-react';
 import { ini } from '@/lib/storage';
 
@@ -17,6 +17,7 @@ interface SettingsViewProps {
   onExportJSON: () => void;
   onResetAll: () => void;
   onLogout?: () => void;
+  apiConnected: boolean;
 }
 
 type TabId = 'profile' | 'invoicing' | 'account' | 'data';
@@ -27,7 +28,8 @@ export function SettingsView({
   onShowOnboarding,
   onExportJSON,
   onResetAll,
-  onLogout
+  onLogout,
+  apiConnected
 }: SettingsViewProps) {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<TabId>('profile');
@@ -105,9 +107,15 @@ export function SettingsView({
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-center">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#3d5a4c]/10 text-[#3d5a4c] text-[11.5px] font-medium border border-[#3d5a4c]/20">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#3d5a4c] animate-pulse" />
-            Express API & MongoDB Live
+          <span
+            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11.5px] font-medium border ${
+              apiConnected
+                ? 'bg-[#3d5a4c]/10 text-[#3d5a4c] border-[#3d5a4c]/20'
+                : 'bg-[#c4623a]/10 text-[#c4623a] border-[#c4623a]/20'
+            }`}
+          >
+            <span className={`w-1.5 h-1.5 rounded-full ${apiConnected ? 'bg-[#3d5a4c] animate-pulse' : 'bg-[#c4623a]'}`} />
+            {apiConnected ? 'Express API & MongoDB Live' : 'Express API Unreachable'}
           </span>
         </div>
       </div>
@@ -381,9 +389,15 @@ export function SettingsView({
                   <span className="text-[11px] font-bold text-[#7a706a] uppercase tracking-wider">
                     Current Active User
                   </span>
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#3d5a4c]/10 text-[#3d5a4c] text-[11px] font-medium border border-[#3d5a4c]/20">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#3d5a4c] animate-pulse" />
-                    Express REST API Connected
+                  <span
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${
+                      apiConnected
+                        ? 'bg-[#3d5a4c]/10 text-[#3d5a4c] border-[#3d5a4c]/20'
+                        : 'bg-[#c4623a]/10 text-[#c4623a] border-[#c4623a]/20'
+                    }`}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${apiConnected ? 'bg-[#3d5a4c] animate-pulse' : 'bg-[#c4623a]'}`} />
+                    {apiConnected ? 'Express REST API Connected' : 'Express REST API Unreachable'}
                   </span>
                 </div>
 

@@ -13,9 +13,10 @@ export interface IInvoice extends Document {
   client: string;
   clientEmail: string;
   amount: number;
-  status: 'Paid' | 'Pending' | 'Overdue';
-  issueDate: string;
-  dueDate: string;
+  status: 'Paid' | 'Unpaid' | 'Overdue';
+  date: string;
+  due: string;
+  desc: string;
   items: IInvoiceItem[];
 }
 
@@ -26,9 +27,10 @@ const InvoiceSchema: Schema = new Schema({
   client: { type: String, required: true },
   clientEmail: { type: String, default: '' },
   amount: { type: Number, required: true, default: 0 },
-  status: { type: String, enum: ['Paid', 'Pending', 'Overdue'], default: 'Pending' },
-  issueDate: { type: String, required: true },
-  dueDate: { type: String, required: true },
+  status: { type: String, enum: ['Paid', 'Unpaid', 'Overdue'], default: 'Unpaid' },
+  date: { type: String, required: true },
+  due: { type: String, required: true },
+  desc: { type: String, default: '' },
   items: [{
     desc: { type: String, required: true },
     qty: { type: Number, required: true, default: 1 },

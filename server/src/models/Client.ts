@@ -4,26 +4,30 @@ export interface IClient extends Document {
   id: string;
   userId: string;
   name: string;
-  company: string;
+  industry: string;
   email: string;
   phone: string;
-  totalBilled: number;
+  value: number;
   status: 'Active' | 'Lead' | 'Inactive';
-  projectsCount: number;
-  avatar?: string;
+  projects: number;
+  color: string;
+  initials?: string;
+  notes?: string;
 }
 
 const ClientSchema: Schema = new Schema({
   id: { type: String, required: true },
   userId: { type: String, required: true, index: true },
   name: { type: String, required: true },
-  company: { type: String, required: true },
-  email: { type: String, required: true },
+  industry: { type: String, default: '' },
+  email: { type: String, default: '' },
   phone: { type: String, default: '' },
-  totalBilled: { type: Number, default: 0 },
+  value: { type: Number, default: 0 },
   status: { type: String, enum: ['Active', 'Lead', 'Inactive'], default: 'Active' },
-  projectsCount: { type: Number, default: 0 },
-  avatar: { type: String, default: '' }
+  projects: { type: Number, default: 0 },
+  color: { type: String, default: '#4e7360' },
+  initials: { type: String, default: '' },
+  notes: { type: String, default: '' }
 }, { timestamps: true });
 
 ClientSchema.index({ userId: 1, id: 1 }, { unique: true });

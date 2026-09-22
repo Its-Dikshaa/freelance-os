@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Project, ProjectStatus } from '@/types';
 import { fmF } from '@/lib/storage';
 import { formatDisplayDate, isOverdue } from '@/lib/date-utils';
-import { Plus, Edit2, Trash2, AlertTriangle } from 'lucide-react';
+import { Edit2, Trash2, AlertTriangle } from 'lucide-react';
 
 interface ProjectsViewProps {
   projects: Project[];

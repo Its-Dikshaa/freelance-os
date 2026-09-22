@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import Project from '../models/Project';
 import { authenticateToken, AuthenticatedRequest } from '../middleware/authMiddleware';
+import { sanitizeUpdate } from '../utils/sanitizeUpdate';
 
 const router = Router();
 
@@ -12,7 +13,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const projects = await Project.find({ userId: req.userId }).sort({ createdAt: -1 });
     return res.json(projects);
-  } catch (err: any) {
+  } catch (err) {
     console.error('[Get Projects Error]', err);
     return res.status(500).json({ error: 'Failed to fetch projects' });
   }
@@ -29,16 +30,17 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
       clientEmail: req.body.clientEmail || '',
       budget: req.body.budget || 0,
       spent: req.body.spent || 0,
+      progress: req.body.progress || 0,
       status: req.body.status || 'Active',
       deadline: req.body.deadline || '',
       color: req.body.color || '#4e7360',
-      description: req.body.description || req.body.desc || ''
+      desc: req.body.desc || req.body.description || ''
     };
 
     const project = new Project(newProjData);
     await project.save();
     return res.status(201).json(project);
-  } catch (err: any) {
+  } catch (err) {
     console.error('[Create Project Error]', err);
     return res.status(500).json({ error: 'Failed to create project' });
   }
@@ -49,14 +51,14 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const updated = await Project.findOneAndUpdate(
       { id: req.params.id, userId: req.userId },
-      { ...req.body, userId: req.userId },
+      { ...sanitizeUpdate(req.body), userId: req.userId },
       { new: true }
     );
     if (!updated) {
       return res.status(404).json({ error: 'Project not found or access denied' });
     }
     return res.json(updated);
-  } catch (err: any) {
+  } catch (err) {
     console.error('[Update Project Error]', err);
     return res.status(500).json({ error: 'Failed to update project' });
   }
@@ -70,7 +72,7 @@ router.delete('/:id', async (req: AuthenticatedRequest, res: Response) => {
       return res.status(404).json({ error: 'Project not found or access denied' });
     }
     return res.json({ message: 'Project deleted successfully' });
-  } catch (err: any) {
+  } catch (err) {
     console.error('[Delete Project Error]', err);
     return res.status(500).json({ error: 'Failed to delete project' });
   }

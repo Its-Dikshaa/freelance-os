@@ -29,13 +29,33 @@ export function getAuthHeaders(): Record<string, string> {
   return headers;
 }
 
+export async function apiCheckHealth(): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/health`, { cache: 'no-store' });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+// Replaces the current user's workspace with the default sample data.
+export async function apiSeed(): Promise<{ message: string }> {
+  const res = await fetch(`${API_BASE_URL}/seed`, {
+    method: 'POST',
+    headers: getAuthHeaders()
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to reset workspace');
+  return data;
+}
+
 // Authentication API
 export async function apiSignup(data: {
   name: string;
   email: string;
   password?: string;
   profession?: string;
-  studio?: string;
+  biz?: string;
   location?: string;
   hourlyRate?: number;
   currency?: string;
@@ -134,39 +154,35 @@ export async function apiGetProjects(): Promise<Project[]> {
 }
 
 export async function apiCreateProject(project: Partial<Project>): Promise<Project> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/projects`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(project),
-    });
-    return await res.json();
-  } catch {
-    return project as Project;
-  }
+  const res = await fetch(`${API_BASE_URL}/projects`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(project),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to create project');
+  return data;
 }
 
 export async function apiUpdateProject(id: string, project: Partial<Project>): Promise<Project> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/projects/${id}`, {
-      method: 'PUT',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(project),
-    });
-    return await res.json();
-  } catch {
-    return project as Project;
-  }
+  const res = await fetch(`${API_BASE_URL}/projects/${id}`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(project),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to update project');
+  return data;
 }
 
 export async function apiDeleteProject(id: string): Promise<void> {
-  try {
-    await fetch(`${API_BASE_URL}/projects/${id}`, {
-      method: 'DELETE',
-      headers: getAuthHeaders()
-    });
-  } catch (err) {
-    console.error(err);
+  const res = await fetch(`${API_BASE_URL}/projects/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders()
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to delete project');
   }
 }
 
@@ -176,39 +192,35 @@ export async function apiGetTasks(): Promise<Task[]> {
 }
 
 export async function apiCreateTask(task: Partial<Task>): Promise<Task> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/tasks`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(task),
-    });
-    return await res.json();
-  } catch {
-    return task as Task;
-  }
+  const res = await fetch(`${API_BASE_URL}/tasks`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(task),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to create task');
+  return data;
 }
 
 export async function apiUpdateTask(id: string, task: Partial<Task>): Promise<Task> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/tasks/${id}`, {
-      method: 'PUT',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(task),
-    });
-    return await res.json();
-  } catch {
-    return task as Task;
-  }
+  const res = await fetch(`${API_BASE_URL}/tasks/${id}`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(task),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to update task');
+  return data;
 }
 
 export async function apiDeleteTask(id: string): Promise<void> {
-  try {
-    await fetch(`${API_BASE_URL}/tasks/${id}`, {
-      method: 'DELETE',
-      headers: getAuthHeaders()
-    });
-  } catch (err) {
-    console.error(err);
+  const res = await fetch(`${API_BASE_URL}/tasks/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders()
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to delete task');
   }
 }
 
@@ -218,26 +230,35 @@ export async function apiGetClients(): Promise<Client[]> {
 }
 
 export async function apiCreateClient(client: Partial<Client>): Promise<Client> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/clients`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(client),
-    });
-    return await res.json();
-  } catch {
-    return client as Client;
-  }
+  const res = await fetch(`${API_BASE_URL}/clients`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(client),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to create client');
+  return data;
+}
+
+export async function apiUpdateClient(id: string, client: Partial<Client>): Promise<Client> {
+  const res = await fetch(`${API_BASE_URL}/clients/${id}`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(client),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to update client');
+  return data;
 }
 
 export async function apiDeleteClient(id: string): Promise<void> {
-  try {
-    await fetch(`${API_BASE_URL}/clients/${id}`, {
-      method: 'DELETE',
-      headers: getAuthHeaders()
-    });
-  } catch (err) {
-    console.error(err);
+  const res = await fetch(`${API_BASE_URL}/clients/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders()
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to delete client');
   }
 }
 
@@ -247,28 +268,35 @@ export async function apiGetInvoices(): Promise<Invoice[]> {
 }
 
 export async function apiCreateInvoice(invoice: Partial<Invoice>): Promise<Invoice> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/invoices`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(invoice),
-    });
-    return await res.json();
-  } catch {
-    return invoice as Invoice;
-  }
+  const res = await fetch(`${API_BASE_URL}/invoices`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(invoice),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to create invoice');
+  return data;
 }
 
 export async function apiUpdateInvoice(id: string, invoice: Partial<Invoice>): Promise<Invoice> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/invoices/${id}`, {
-      method: 'PUT',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(invoice),
-    });
-    return await res.json();
-  } catch {
-    return invoice as Invoice;
+  const res = await fetch(`${API_BASE_URL}/invoices/${id}`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(invoice),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to update invoice');
+  return data;
+}
+
+export async function apiDeleteInvoice(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/invoices/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders()
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to delete invoice');
   }
 }
 
@@ -278,14 +306,12 @@ export async function apiGetPayments(): Promise<Payment[]> {
 }
 
 export async function apiCreatePayment(payment: Partial<Payment>): Promise<Payment> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/payments`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(payment),
-    });
-    return await res.json();
-  } catch {
-    return payment as Payment;
-  }
+  const res = await fetch(`${API_BASE_URL}/payments`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payment),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to record payment');
+  return data;
 }

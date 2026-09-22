@@ -3,16 +3,23 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import User from '../models/User';
 import { authenticateToken, AuthenticatedRequest, JWT_SECRET } from '../middleware/authMiddleware';
+import { loginRateLimiter, signupRateLimiter } from '../middleware/rateLimiters';
+import { validatePassword } from '../utils/validatePassword';
 
 const router = Router();
 
 // POST /api/auth/signup
-router.post('/signup', async (req: AuthenticatedRequest, res: Response) => {
+router.post('/signup', signupRateLimiter, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { name, email, password, studio, profession, location, hourlyRate, currency, gst, bank, prefix } = req.body;
+    const { name, email, password, biz, profession, location, hourlyRate, currency, gst, bank, prefix } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      return res.status(400).json({ error: passwordError });
     }
 
     const cleanEmail = email.trim().toLowerCase();
@@ -28,11 +35,13 @@ router.post('/signup', async (req: AuthenticatedRequest, res: Response) => {
       role: profession || 'Freelancer',
       email: cleanEmail,
       password: hashedPassword,
-      studio: studio || `${name || 'Freelancer'}'s Studio`,
+      biz: biz || `${name || 'Freelancer'}'s Studio`,
+      location: location || '',
       hourlyRate: hourlyRate || 1000,
       currency: currency || '₹',
       gst: gst || '',
       paymentNotes: bank || 'Bank Transfer / UPI accepted.',
+      prefix: prefix || 'INV',
       hasCompletedOnboarding: true
     });
 
@@ -44,14 +53,15 @@ router.post('/signup', async (req: AuthenticatedRequest, res: Response) => {
     delete userResponse.password;
 
     return res.status(201).json({ token, user: userResponse });
-  } catch (err: any) {
+  } catch (err) {
     console.error('[Signup Error]', err);
-    return res.status(500).json({ error: err.message || 'Failed to create user account' });
+    const message = err instanceof Error ? err.message : 'Failed to create user account';
+    return res.status(500).json({ error: message });
   }
 });
 
 // POST /api/auth/login
-router.post('/login', async (req: AuthenticatedRequest, res: Response) => {
+router.post('/login', loginRateLimiter, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { email, password } = req.body;
 
@@ -76,9 +86,10 @@ router.post('/login', async (req: AuthenticatedRequest, res: Response) => {
     delete userResponse.password;
 
     return res.json({ token, user: userResponse });
-  } catch (err: any) {
+  } catch (err) {
     console.error('[Login Error]', err);
-    return res.status(500).json({ error: err.message || 'Authentication failed' });
+    const message = err instanceof Error ? err.message : 'Authentication failed';
+    return res.status(500).json({ error: message });
   }
 });
 
@@ -90,7 +101,7 @@ router.get('/me', authenticateToken, async (req: AuthenticatedRequest, res: Resp
       return res.status(404).json({ error: 'User account not found' });
     }
     return res.json(user);
-  } catch (err: any) {
+  } catch (err) {
     console.error('[Get Me Error]', err);
     return res.status(500).json({ error: 'Failed to fetch user account' });
   }

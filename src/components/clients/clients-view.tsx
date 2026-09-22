@@ -3,7 +3,7 @@
 import React from 'react';
 import { Client } from '@/types';
 import { fmF } from '@/lib/storage';
-import { Plus, Edit2, Trash2 } from 'lucide-react';
+import { Edit2, Trash2 } from 'lucide-react';
 
 interface ClientsViewProps {
   clients: Client[];
@@ -16,8 +16,8 @@ export function ClientsView({ clients, onOpenModal, onConfirmDelete, searchText 
   let list = [...clients];
   if (searchText) {
     list = list.filter(c =>
-      c.name.toLowerCase().includes(searchText.toLowerCase()) ||
-      c.industry.toLowerCase().includes(searchText.toLowerCase())
+      c.name?.toLowerCase().includes(searchText.toLowerCase()) ||
+      c.industry?.toLowerCase().includes(searchText.toLowerCase())
     );
   }
 

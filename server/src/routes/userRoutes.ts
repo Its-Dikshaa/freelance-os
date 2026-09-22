@@ -14,7 +14,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
       return res.status(404).json({ error: 'User account not found' });
     }
     return res.json(user);
-  } catch (err: any) {
+  } catch (err) {
     console.error('[Get User Error]', err);
     return res.status(500).json({ error: 'Failed to fetch user settings' });
   }
@@ -23,9 +23,13 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
 // PUT /api/user - Update current logged-in user profile
 router.put('/', async (req: AuthenticatedRequest, res: Response) => {
   try {
+    // `password` must only ever be written as a bcrypt hash by the auth routes;
+    // letting it through here would overwrite the hash with a raw string.
+    const { password, _id, ...updates } = req.body;
+
     const updated = await User.findByIdAndUpdate(
       req.userId,
-      { $set: req.body },
+      { $set: updates },
       { new: true }
     ).select('-password');
     
@@ -33,7 +37,7 @@ router.put('/', async (req: AuthenticatedRequest, res: Response) => {
       return res.status(404).json({ error: 'User account not found' });
     }
     return res.json(updated);
-  } catch (err: any) {
+  } catch (err) {
     console.error('[Update User Error]', err);
     return res.status(500).json({ error: 'Failed to update user settings' });
   }

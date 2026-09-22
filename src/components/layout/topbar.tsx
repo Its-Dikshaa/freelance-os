@@ -10,6 +10,7 @@ interface TopbarProps {
   searchText: string;
   onSearchChange: (text: string) => void;
   onQuickAdd: () => void;
+  apiConnected: boolean;
 }
 
 const pageTitles: Record<PageId, string> = {
@@ -32,7 +33,7 @@ const pageBtnLabels: Record<PageId, string> = {
   settings: ''
 };
 
-export function Topbar({ currentPg, onOpenMobile, searchText, onSearchChange, onQuickAdd }: TopbarProps) {
+export function Topbar({ currentPg, onOpenMobile, searchText, onSearchChange, onQuickAdd, apiConnected }: TopbarProps) {
   const btnLabel = pageBtnLabels[currentPg];
 
   return (
@@ -47,9 +48,15 @@ export function Topbar({ currentPg, onOpenMobile, searchText, onSearchChange, on
         <h1 className="font-serif-playfair text-[18px] font-medium text-[#2c2825] tracking-tight">
           {pageTitles[currentPg]}
         </h1>
-        <div className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#3d5a4c]/10 border border-[#3d5a4c]/20 text-[#3d5a4c] text-[11px] font-medium">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#3d5a4c] animate-pulse" />
-          <span>Express API Connected</span>
+        <div
+          className={`hidden md:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-[11px] font-medium ${
+            apiConnected
+              ? 'bg-[#3d5a4c]/10 border-[#3d5a4c]/20 text-[#3d5a4c]'
+              : 'bg-[#c4623a]/10 border-[#c4623a]/20 text-[#c4623a]'
+          }`}
+        >
+          <span className={`w-1.5 h-1.5 rounded-full ${apiConnected ? 'bg-[#3d5a4c] animate-pulse' : 'bg-[#c4623a]'}`} />
+          <span>{apiConnected ? 'Express API Connected' : 'Express API Unreachable'}</span>
         </div>
       </div>
 

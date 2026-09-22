@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Project, Client, Invoice, Task, UserSettings, ActivityItem } from '@/types';
 import { fm, fmF } from '@/lib/storage';
 import { formatDisplayDate, isOverdue } from '@/lib/date-utils';
-import { ArrowUpRight, TrendingUp, TrendingDown, Clock, Plus, CheckCircle, FileText, UserPlus, FolderPlus, AlertTriangle } from 'lucide-react';
+import { ArrowUpRight, TrendingUp, TrendingDown, CheckCircle, FileText, UserPlus, FolderPlus, AlertTriangle } from 'lucide-react';
 import { PageId } from '../layout/sidebar';
 
 interface DashboardViewProps {
@@ -59,15 +59,23 @@ export function DashboardView({
   }
   activeProjects = activeProjects.slice(0, 4);
 
-  // Revenue chart mock values
-  const baseAvg = (invoices.reduce((a, i) => a + Number(i.amount), 0) / 6) || 40000;
-  const monthlyRevenue = [0.5, 0.68, 0.6, 0.8, 0.72, 0.95].map(multiplier => Math.round(multiplier * baseAvg));
-  const maxRevenue = Math.max(...monthlyRevenue, 1);
-  const monthLabels = Array.from({ length: 6 }, (_, i) => {
-    const d = new Date();
-    d.setMonth(d.getMonth() - (5 - i));
-    return d.toLocaleDateString('en-IN', { month: 'short' });
+  // Revenue Overview: real monthly totals of Paid invoices, last 6 months
+  const now = new Date();
+  const monthBuckets = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+    return { year: d.getFullYear(), month: d.getMonth(), label: d.toLocaleDateString('en-IN', { month: 'short' }) };
   });
+  const paidInvoices = invoices.filter(i => i.status === 'Paid');
+  const monthlyRevenue = monthBuckets.map(bucket =>
+    paidInvoices
+      .filter(i => {
+        const parsed = new Date(i.date);
+        return !isNaN(parsed.getTime()) && parsed.getFullYear() === bucket.year && parsed.getMonth() === bucket.month;
+      })
+      .reduce((sum, i) => sum + Number(i.amount), 0)
+  );
+  const maxRevenue = Math.max(...monthlyRevenue, 1);
+  const monthLabels = monthBuckets.map(b => b.label);
 
   // Upcoming Deadlines (merged projects + tasks)
   const projectDeadlines = projects
@@ -101,8 +109,8 @@ export function DashboardView({
   let topClients = [...clients].sort((a, b) => (b.value || 0) - (a.value || 0));
   if (searchText) {
     topClients = topClients.filter(c =>
-      c.name.toLowerCase().includes(searchText.toLowerCase()) ||
-      c.industry.toLowerCase().includes(searchText.toLowerCase())
+      c.name?.toLowerCase().includes(searchText.toLowerCase()) ||
+      c.industry?.toLowerCase().includes(searchText.toLowerCase())
     );
   }
   topClients = topClients.slice(0, 4);

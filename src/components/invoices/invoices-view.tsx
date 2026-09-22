@@ -4,9 +4,9 @@ import React, { useState } from 'react';
 import { Invoice, InvoiceStatus, Client, UserSettings } from '@/types';
 import { fmF } from '@/lib/storage';
 import { formatDisplayDate, isOverdue } from '@/lib/date-utils';
-import { API_BASE_URL } from '@/lib/api';
+import { API_BASE_URL, getAuthHeaders } from '@/lib/api';
 import { useToast } from '@/components/ui/toast';
-import { Plus, Eye, Edit2, Mail, CheckCircle2, Trash2, Download, X, Copy, AlertTriangle } from 'lucide-react';
+import { Eye, Edit2, Mail, CheckCircle2, Trash2, Download, X, Copy, AlertTriangle, Send } from 'lucide-react';
 
 interface InvoicesViewProps {
   invoices: Invoice[];
@@ -69,14 +69,14 @@ export function InvoicesView({
       inv.client.toLowerCase().includes(c.name.toLowerCase())
     );
 
-    const clientEmail = cl?.email || (inv as any).clientEmail || (inv as any).email || (cl ? `${cl.name.toLowerCase().replace(/\s+/g, '')}@company.com` : 'client@company.com');
+    const clientEmail = cl?.email || inv.clientEmail || (cl ? `${cl.name.toLowerCase().replace(/\s+/g, '')}@company.com` : 'client@company.com');
 
     setEmailInvoice(inv);
     setEmailTo(clientEmail);
     setEmailSubj(`Invoice ${inv.num} — ${settings.biz || 'Diksha Design Studio'}`);
 
-    const dueDateStr = inv.due || (inv as any).dueDate || '2026-09-30';
-    const issueDateStr = inv.date || (inv as any).issueDate || new Date().toISOString().slice(0, 10);
+    const dueDateStr = inv.due || '2026-09-30';
+    const issueDateStr = inv.date || new Date().toISOString().slice(0, 10);
 
     const hasGst = Boolean(settings.gst);
     const gstRate = 0.18;
@@ -235,9 +235,9 @@ export function InvoicesView({
     setTimeout(async () => {
       const pdfBase64 = await getInvoicePDFBase64(emailInvoice);
       try {
-        const res = await fetch('http://localhost:5050/api/invoices/send-email', {
+        const res = await fetch(`${API_BASE_URL}/invoices/send-email`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getAuthHeaders(),
           body: JSON.stringify({
             to: emailTo,
             subject: emailSubj,
@@ -248,7 +248,7 @@ export function InvoicesView({
         });
         const data = await res.json();
         if (res.ok) {
-          toast(`Invoice PDF Email (${emailInvoice.num}.pdf attached) sent to ${emailTo}!`);
+          toast(data.message || `Invoice email sent to ${emailTo}!`);
           setEmailInvoice(null);
         } else {
           toast(data.error || 'Opened mail client');
@@ -611,10 +611,18 @@ export function InvoicesView({
 
               <button
                 onClick={handleSendEmail}
-                className="flex-1 py-2.5 bg-[#3d5a4c] text-white hover:bg-[#4e7360] rounded-[9px] text-[12.5px] font-medium flex items-center justify-center gap-2 shadow-md cursor-pointer"
+                className="flex-1 py-2.5 bg-white border border-[#e8e1d7] text-[#4a4440] hover:bg-[#f0ebe3] rounded-[9px] text-[12.5px] font-medium flex items-center justify-center gap-2 cursor-pointer"
                 title="Open local Mail app with pre-filled email details"
               >
-                <Mail className="w-4 h-4 text-[#e8c07a]" /> Open in Mail App
+                <Mail className="w-4 h-4" /> Open in Mail App
+              </button>
+
+              <button
+                onClick={handleDirectSendExpress}
+                className="flex-1 py-2.5 bg-[#3d5a4c] text-white hover:bg-[#4e7360] rounded-[9px] text-[12.5px] font-medium flex items-center justify-center gap-2 shadow-md cursor-pointer"
+                title="Send directly from the server via SMTP, with the PDF attached"
+              >
+                <Send className="w-4 h-4 text-[#e8c07a]" /> Send via Server
               </button>
             </div>
           </div>

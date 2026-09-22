@@ -11,7 +11,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const payments = await Payment.find({ userId: req.userId }).sort({ createdAt: -1 });
     return res.json(payments);
-  } catch (err: any) {
+  } catch (err) {
     console.error('[Get Payments Error]', err);
     return res.status(500).json({ error: 'Failed to fetch payments' });
   }
@@ -35,7 +35,7 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
     const payment = new Payment(newPaymentData);
     await payment.save();
     return res.status(201).json(payment);
-  } catch (err: any) {
+  } catch (err) {
     console.error('[Create Payment Error]', err);
     return res.status(500).json({ error: 'Failed to record payment' });
   }

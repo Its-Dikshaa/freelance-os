@@ -8,10 +8,11 @@ export interface IProject extends Document {
   clientEmail: string;
   budget: number;
   spent: number;
-  status: 'Active' | 'In Review' | 'Pending' | 'Done';
+  progress: number;
+  status: 'Active' | 'Review' | 'Pending' | 'Done';
   deadline: string;
   color: string;
-  description?: string;
+  desc?: string;
 }
 
 const ProjectSchema: Schema = new Schema({
@@ -22,10 +23,11 @@ const ProjectSchema: Schema = new Schema({
   clientEmail: { type: String, default: '' },
   budget: { type: Number, required: true, default: 0 },
   spent: { type: Number, required: true, default: 0 },
-  status: { type: String, enum: ['Active', 'In Review', 'Pending', 'Done'], default: 'Active' },
+  progress: { type: Number, default: 0 },
+  status: { type: String, enum: ['Active', 'Review', 'Pending', 'Done'], default: 'Active' },
   deadline: { type: String, required: true },
   color: { type: String, default: '#4e7360' },
-  description: { type: String, default: '' }
+  desc: { type: String, default: '' }
 }, { timestamps: true });
 
 ProjectSchema.index({ userId: 1, id: 1 }, { unique: true });
