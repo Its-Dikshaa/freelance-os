@@ -19,7 +19,7 @@ import {
   apiGetMe, getAuthToken, clearAuthToken
 } from '@/lib/api';
 import { toIsoDate, formatDisplayDate, isOverdue, getDaysDiff } from '@/lib/date-utils';
-import { AlertTriangle, Clock } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 
 import { ToastProvider, useToast } from '@/components/ui/toast';
 import { Modal } from '@/components/ui/modal';
