@@ -16,6 +16,10 @@ import seedRoutes from './routes/seedRoutes';
 export function createApp() {
   const app = express();
 
+  // Required for express-rate-limit to key on the real client IP (X-Forwarded-For)
+  // instead of the reverse proxy's address when deployed behind one.
+  app.set('trust proxy', 1);
+
   app.use(cors());
   app.use(express.json());
 

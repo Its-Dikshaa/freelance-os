@@ -50,7 +50,7 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response) => {
     const updated = await Invoice.findOneAndUpdate(
       { id: req.params.id, userId: req.userId },
       { ...sanitizeUpdate(req.body), userId: req.userId },
-      { new: true }
+      { new: true, runValidators: true }
     );
     if (!updated) {
       return res.status(404).json({ error: 'Invoice not found or access denied' });

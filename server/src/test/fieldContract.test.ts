@@ -84,6 +84,36 @@ describe('Invoice field contract', () => {
   });
 });
 
+describe('User field contract', () => {
+  it('round-trips every profile field the frontend sends via signup and PUT /api/user', async () => {
+    const payload = {
+      name: 'Test User', email: `user-fc-${Date.now()}@example.com`, password: 'password123',
+      profession: 'Illustrator', biz: 'Test Studio', location: 'Delhi, India',
+      hourlyRate: 0, currency: '$', gst: 'GSTIN12345', bank: 'test@upi', prefix: 'TST'
+    };
+
+    const signup = await request(app).post('/api/auth/signup').send(payload);
+    expect(signup.status).toBe(201);
+    expect(signup.body.user.profession).toBe(payload.profession);
+    expect(signup.body.user.rate).toBe(payload.hourlyRate);
+    expect(signup.body.user.bank).toBe(payload.bank);
+
+    const token = signup.body.token as string;
+    const update = { profession: 'Product Designer', rate: 2500, bank: 'new@upi' };
+    const updated = await request(app).put('/api/user').set(authHeader(token)).send(update);
+    expect(updated.status).toBe(200);
+    for (const [key, value] of Object.entries(update)) {
+      expect(updated.body[key], `field "${key}"`).toEqual(value);
+    }
+
+    const fetched = await request(app).get('/api/user').set(authHeader(token));
+    expect(fetched.status).toBe(200);
+    for (const [key, value] of Object.entries(update)) {
+      expect(fetched.body[key], `field "${key}"`).toEqual(value);
+    }
+  });
+});
+
 describe('PUT update integrity', () => {
   it('an edit cannot rewrite the record id or userId', async () => {
     const { token } = await createTestUser();

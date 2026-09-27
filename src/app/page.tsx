@@ -378,7 +378,7 @@ function MainAppContent() {
   const handleSaveSettings = (newSettings: UserSettings) => {
     setSettings(newSettings);
     sv(K.s, newSettings);
-    apiUpdateUser(newSettings);
+    apiUpdateUser(newSettings).catch(err => toast(err.message || 'Failed to sync profile settings', 'error'));
   };
 
   const handleExportJSON = () => {
@@ -421,12 +421,16 @@ function MainAppContent() {
       localStorage.removeItem(K.i);
       localStorage.removeItem(K.t);
       localStorage.removeItem(K.s);
+      localStorage.removeItem(K.a);
+      localStorage.removeItem(K.g);
       sessionStorage.clear();
       setProjects([]);
       setClients([]);
       setInvoices([]);
       setTasks([]);
       setSettings(defaultSettings);
+      setActLog(defaultActivity);
+      setGoalTarget(500000);
       setIsOnboarded(false);
       toast('Logged out successfully!');
     }

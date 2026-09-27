@@ -8,38 +8,43 @@ import Payment from '../models/Payment';
 
 export const runInitialMigration = async () => {
   try {
+    // The demo account's password is public (it ships in source), so it must
+    // never be created outside local/dev use.
+    const seedDemoUser = process.env.NODE_ENV !== 'production';
     const dikshaEmail = 'diksha@design.io';
-    let dikshaUser = await User.findOne({ email: dikshaEmail });
+    let dikshaUser = seedDemoUser ? await User.findOne({ email: dikshaEmail }) : null;
 
-    if (!dikshaUser) {
+    if (seedDemoUser && !dikshaUser) {
       const hashedPassword = await bcrypt.hash('password123', 10);
       dikshaUser = new User({
         name: 'Diksha Jangra',
-        role: 'UI/UX Designer',
+        profession: 'UI/UX Designer',
         email: dikshaEmail,
         password: hashedPassword,
         biz: 'Diksha Design Studio',
-        hourlyRate: 1500,
+        rate: 1500,
         currency: '₹',
         gst: 'GSTIN07AAAAA0000A1Z5',
-        paymentNotes: 'diksha@upi',
+        bank: 'diksha@upi',
         hasCompletedOnboarding: true
       });
       await dikshaUser.save();
       console.log(`[Migration] Primary user account created: ${dikshaEmail}`);
     }
 
-    const dikshaId = dikshaUser._id.toString();
+    if (dikshaUser) {
+      const dikshaId = dikshaUser._id.toString();
 
-    // Migrate any existing unassigned database records to Diksha's account
-    const pResult = await Project.updateMany({ userId: { $exists: false } }, { $set: { userId: dikshaId } });
-    const cResult = await Client.updateMany({ userId: { $exists: false } }, { $set: { userId: dikshaId } });
-    const tResult = await Task.updateMany({ userId: { $exists: false } }, { $set: { userId: dikshaId } });
-    const iResult = await Invoice.updateMany({ userId: { $exists: false } }, { $set: { userId: dikshaId } });
-    const payResult = await Payment.updateMany({ userId: { $exists: false } }, { $set: { userId: dikshaId } });
+      // Migrate any existing unassigned database records to Diksha's account
+      const pResult = await Project.updateMany({ userId: { $exists: false } }, { $set: { userId: dikshaId } });
+      const cResult = await Client.updateMany({ userId: { $exists: false } }, { $set: { userId: dikshaId } });
+      const tResult = await Task.updateMany({ userId: { $exists: false } }, { $set: { userId: dikshaId } });
+      const iResult = await Invoice.updateMany({ userId: { $exists: false } }, { $set: { userId: dikshaId } });
+      const payResult = await Payment.updateMany({ userId: { $exists: false } }, { $set: { userId: dikshaId } });
 
-    if (pResult.modifiedCount || cResult.modifiedCount || tResult.modifiedCount || iResult.modifiedCount || payResult.modifiedCount) {
-      console.log(`[Migration] Existing legacy database records migrated to user ${dikshaEmail}`);
+      if (pResult.modifiedCount || cResult.modifiedCount || tResult.modifiedCount || iResult.modifiedCount || payResult.modifiedCount) {
+        console.log(`[Migration] Existing legacy database records migrated to user ${dikshaEmail}`);
+      }
     }
 
     // Earlier versions stored these fields under backend-only names, which the
@@ -47,6 +52,9 @@ export const runInitialMigration = async () => {
     // would otherwise drop $rename ops for fields no longer in the schema.
     const renames = await Promise.all([
       User.collection.updateMany({ studio: { $exists: true } }, { $rename: { studio: 'biz' } }),
+      User.collection.updateMany({ role: { $exists: true } }, { $rename: { role: 'profession' } }),
+      User.collection.updateMany({ hourlyRate: { $exists: true } }, { $rename: { hourlyRate: 'rate' } }),
+      User.collection.updateMany({ paymentNotes: { $exists: true } }, { $rename: { paymentNotes: 'bank' } }),
       Project.collection.updateMany({ description: { $exists: true } }, { $rename: { description: 'desc' } }),
       Task.collection.updateMany({ dueDate: { $exists: true } }, { $rename: { dueDate: 'due' } }),
       Invoice.collection.updateMany({ issueDate: { $exists: true } }, { $rename: { issueDate: 'date' } }),

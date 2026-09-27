@@ -2,10 +2,21 @@
  * Utility functions for date parsing, formatting, and overdue state detection.
  */
 
+import { InvoiceStatus } from '@/types';
+
+// Format a Date using its local (not UTC) calendar fields, so a date parsed
+// as local time doesn't shift to the previous/next day when serialized.
+function toLocalIsoDate(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 // Convert any date string (ISO, "20 sept", "Mar 25", etc.) to ISO format YYYY-MM-DD
 export function toIsoDate(dateStr?: string): string {
   if (!dateStr || !dateStr.trim()) {
-    return new Date().toISOString().slice(0, 10);
+    return toLocalIsoDate(new Date());
   }
 
   const trimmed = dateStr.trim();
@@ -18,7 +29,7 @@ export function toIsoDate(dateStr?: string): string {
   // Attempt JS Date parse directly
   const parsed = new Date(trimmed);
   if (!isNaN(parsed.getTime())) {
-    return parsed.toISOString().slice(0, 10);
+    return toLocalIsoDate(parsed);
   }
 
   // Fallback if format is like "20 sept" or "Mar 25"
@@ -26,10 +37,10 @@ export function toIsoDate(dateStr?: string): string {
   const currentYear = now.getFullYear();
   const fullAttempt = new Date(`${trimmed} ${currentYear}`);
   if (!isNaN(fullAttempt.getTime())) {
-    return fullAttempt.toISOString().slice(0, 10);
+    return toLocalIsoDate(fullAttempt);
   }
 
-  return now.toISOString().slice(0, 10);
+  return toLocalIsoDate(now);
 }
 
 // Format ISO or raw date string to readable label (e.g., "Sep 20, 2026" or "20 Sep")
@@ -99,4 +110,11 @@ export function getDaysDiff(dateStr?: string): { days: number; isPast: boolean }
     days,
     isPast: diffMs < 0
   };
+}
+
+// Single source of truth for "is this invoice actually overdue" — an Unpaid
+// invoice past its due date is Overdue everywhere (filters, KPIs, previews),
+// not just wherever this gets computed ad hoc.
+export function getInvoiceStatus(status: InvoiceStatus, due?: string): InvoiceStatus {
+  return status === 'Unpaid' && isOverdue(due) ? 'Overdue' : status;
 }

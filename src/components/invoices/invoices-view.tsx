@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Invoice, InvoiceStatus, Client, UserSettings } from '@/types';
 import { fmF } from '@/lib/storage';
-import { formatDisplayDate, isOverdue } from '@/lib/date-utils';
+import { formatDisplayDate, getInvoiceStatus } from '@/lib/date-utils';
 import { API_BASE_URL, getAuthHeaders } from '@/lib/api';
 import { useToast } from '@/components/ui/toast';
 import { Eye, Edit2, Mail, CheckCircle2, Trash2, Download, X, Copy, AlertTriangle, Send } from 'lucide-react';
@@ -39,7 +39,7 @@ export function InvoicesView({
 
   let list = [...invoices];
   if (filterStatus !== 'all') {
-    list = list.filter(i => i.status === filterStatus);
+    list = list.filter(i => getInvoiceStatus(i.status, i.due) === filterStatus);
   }
   if (searchText) {
     list = list.filter(i =>
@@ -293,7 +293,7 @@ export function InvoicesView({
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
           {list.map(inv => {
-            const actualStatus: InvoiceStatus = (inv.status === 'Unpaid' && isOverdue(inv.due)) ? 'Overdue' : inv.status;
+            const actualStatus: InvoiceStatus = getInvoiceStatus(inv.status, inv.due);
             return (
               <div
                 key={inv.id}
@@ -394,8 +394,8 @@ export function InvoicesView({
                     <div className="text-[12px] text-[#7a706a] mt-1">Issued: {previewInvoice.date}</div>
                     <div className="text-[12px] text-[#7a706a]">Due: {previewInvoice.due}</div>
                     <div className="mt-2 inline-block">
-                      <span className={`text-[10.5px] font-semibold px-3 py-1 rounded-full ${statusBadges[previewInvoice.status]}`}>
-                        {previewInvoice.status}
+                      <span className={`text-[10.5px] font-semibold px-3 py-1 rounded-full ${statusBadges[getInvoiceStatus(previewInvoice.status, previewInvoice.due)]}`}>
+                        {getInvoiceStatus(previewInvoice.status, previewInvoice.due)}
                       </span>
                     </div>
                   </div>

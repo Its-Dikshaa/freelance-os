@@ -135,17 +135,14 @@ export async function apiGetUser(): Promise<UserSettings> {
 }
 
 export async function apiUpdateUser(user: Partial<UserSettings>): Promise<UserSettings> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/user`, {
-      method: 'PUT',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(user),
-    });
-    if (!res.ok) throw new Error('Failed to update user');
-    return await res.json();
-  } catch {
-    return user as UserSettings;
-  }
+  const res = await fetch(`${API_BASE_URL}/user`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(user),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to update user');
+  return data;
 }
 
 // Projects

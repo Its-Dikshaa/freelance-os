@@ -25,12 +25,12 @@ router.put('/', async (req: AuthenticatedRequest, res: Response) => {
   try {
     // `password` must only ever be written as a bcrypt hash by the auth routes;
     // letting it through here would overwrite the hash with a raw string.
-    const { password, _id, ...updates } = req.body;
+    const { password, _id, createdAt, updatedAt, ...updates } = req.body;
 
     const updated = await User.findByIdAndUpdate(
       req.userId,
       { $set: updates },
-      { new: true }
+      { new: true, runValidators: true }
     ).select('-password');
     
     if (!updated) {

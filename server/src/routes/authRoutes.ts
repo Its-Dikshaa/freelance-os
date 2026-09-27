@@ -32,15 +32,15 @@ router.post('/signup', signupRateLimiter, async (req: AuthenticatedRequest, res:
 
     const user = new User({
       name: name || 'New User',
-      role: profession || 'Freelancer',
+      profession: profession || 'Freelancer',
       email: cleanEmail,
       password: hashedPassword,
       biz: biz || `${name || 'Freelancer'}'s Studio`,
       location: location || '',
-      hourlyRate: hourlyRate || 1000,
+      rate: hourlyRate ?? 1000,
       currency: currency || '₹',
       gst: gst || '',
-      paymentNotes: bank || 'Bank Transfer / UPI accepted.',
+      bank: bank || 'Bank Transfer / UPI accepted.',
       prefix: prefix || 'INV',
       hasCompletedOnboarding: true
     });

@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Project, Client, Invoice, Task, UserSettings, ActivityItem } from '@/types';
 import { fm, fmF } from '@/lib/storage';
-import { formatDisplayDate, isOverdue } from '@/lib/date-utils';
+import { formatDisplayDate, isOverdue, getInvoiceStatus } from '@/lib/date-utils';
 import { ArrowUpRight, TrendingUp, TrendingDown, CheckCircle, FileText, UserPlus, FolderPlus, AlertTriangle } from 'lucide-react';
 import { PageId } from '../layout/sidebar';
 
@@ -99,8 +99,8 @@ export function DashboardView({
 
   // Invoice Health Donut data
   const paidVal = invoices.filter(i => i.status === 'Paid').reduce((a, i) => a + Number(i.amount), 0);
-  const unpVal = invoices.filter(i => i.status === 'Unpaid').reduce((a, i) => a + Number(i.amount), 0);
-  const ovdVal = invoices.filter(i => i.status === 'Overdue').reduce((a, i) => a + Number(i.amount), 0);
+  const unpVal = invoices.filter(i => getInvoiceStatus(i.status, i.due) === 'Unpaid').reduce((a, i) => a + Number(i.amount), 0);
+  const ovdVal = invoices.filter(i => getInvoiceStatus(i.status, i.due) === 'Overdue').reduce((a, i) => a + Number(i.amount), 0);
   const totalInvoiceVal = paidVal + unpVal + ovdVal || 1;
   const pPaid = (paidVal / totalInvoiceVal) * 100;
   const pUnp = (unpVal / totalInvoiceVal) * 100;
