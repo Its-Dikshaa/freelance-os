@@ -17,6 +17,14 @@ const outfit = Outfit({
 export const metadata: Metadata = {
   title: "FreelanceOS — Your work · your rules",
   description: "Calm, organized workspace for independent freelancers and studios.",
+  icons: {
+    icon: [
+      { url: "/favicon.png", type: "image/png" },
+      { url: "/favicon.ico" },
+    ],
+    shortcut: "/favicon.png",
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export default function RootLayout({
