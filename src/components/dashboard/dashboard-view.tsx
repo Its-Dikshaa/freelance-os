@@ -41,6 +41,7 @@ export function DashboardView({
   const hour = new Date().getHours();
   const greetingWord = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   const firstName = (settings.name || 'Diksha').trim().split(' ')[0];
+  const curSym = settings?.currency || '₹';
 
   const activeProjectsCount = projects.filter(p => p.status !== 'Done').length;
   const openTasksCount = tasks.filter(t => t.status !== 'Done').length;
@@ -108,8 +109,25 @@ export function DashboardView({
   const pPaid = (paidVal / totalInvoiceVal) * 100;
   const pUnp = (unpVal / totalInvoiceVal) * 100;
 
-  // Top Clients
-  let topClients = [...clients].sort((a, b) => (b.value || 0) - (a.value || 0));
+  // Top Clients calculated dynamically from projects and paid invoices
+  const clientStatsMap = new Map<string, { projectCount: number; revenue: number }>();
+  clients.forEach(c => {
+    const trimmed = c.name?.toLowerCase().trim();
+    const count = projects.filter(p => p.client?.toLowerCase().trim() === trimmed).length || c.projects || 0;
+    const paidRev = invoices
+      .filter(i => i.client?.toLowerCase().trim() === trimmed && i.status === 'Paid')
+      .reduce((sum, inv) => sum + Number(inv.amount), 0);
+    clientStatsMap.set(c.id, {
+      projectCount: count,
+      revenue: paidRev || c.value || 0
+    });
+  });
+
+  let topClients = [...clients].sort((a, b) => {
+    const revA = clientStatsMap.get(a.id)?.revenue || 0;
+    const revB = clientStatsMap.get(b.id)?.revenue || 0;
+    return revB - revA;
+  });
   if (searchText) {
     topClients = topClients.filter(c =>
       c.name?.toLowerCase().includes(searchText.toLowerCase()) ||
@@ -160,7 +178,7 @@ export function DashboardView({
         <div className="bg-white border border-[#e8e1d7] rounded-[18px] p-5 shadow-sm relative overflow-hidden transition-all hover:-translate-y-1 hover:shadow-md">
           <div className="absolute top-0 right-0 w-[70px] h-[70px] rounded-bl-[70px] bg-[#c9963e]/7 opacity-45 pointer-events-none" />
           <div className="text-[10.5px] font-semibold text-[#b5a898] uppercase tracking-wider mb-2">Total Earned</div>
-          <div className="font-serif-playfair text-[25px] font-medium text-[#2c2825] leading-none">{fm(totalEarned)}</div>
+          <div className="font-serif-playfair text-[25px] font-medium text-[#2c2825] leading-none">{fm(totalEarned, curSym)}</div>
           <div className="text-[11px] text-[#4e7360] mt-2 flex items-center gap-1">
             <TrendingUp className="w-3.5 h-3.5" /> ↑ From invoices
           </div>
@@ -169,7 +187,7 @@ export function DashboardView({
         <div className="bg-white border border-[#e8e1d7] rounded-[18px] p-5 shadow-sm relative overflow-hidden transition-all hover:-translate-y-1 hover:shadow-md">
           <div className="absolute top-0 right-0 w-[70px] h-[70px] rounded-bl-[70px] bg-[#c4623a]/7 opacity-45 pointer-events-none" />
           <div className="text-[10.5px] font-semibold text-[#b5a898] uppercase tracking-wider mb-2">Outstanding</div>
-          <div className="font-serif-playfair text-[25px] font-medium text-[#2c2825] leading-none">{fm(outstanding)}</div>
+          <div className="font-serif-playfair text-[25px] font-medium text-[#2c2825] leading-none">{fm(outstanding, curSym)}</div>
           <div className="text-[11px] text-[#c4623a] mt-2 flex items-center gap-1">
             <TrendingDown className="w-3.5 h-3.5" /> ↓ {awaitingInvoicesCount} pending
           </div>
@@ -218,7 +236,7 @@ export function DashboardView({
                     </div>
                   </div>
                   <div className="text-right shrink-0">
-                    <div className="text-[13px] font-semibold text-[#3d5a4c]">{fm(p.budget)}</div>
+                    <div className="text-[13px] font-semibold text-[#3d5a4c]">{fm(p.budget, curSym)}</div>
                     <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#3d5a4c]/10 text-[#3d5a4c]">
                       {p.status}
                     </span>
@@ -244,7 +262,7 @@ export function DashboardView({
                   style={{ height: `${(val / maxRevenue) * 80}%` }}
                 >
                   <div className="hidden group-hover:block absolute -top-8 left-1/2 -translate-x-1/2 bg-[#2c2825] text-[#f7f4ef] text-[10px] px-2 py-0.5 rounded whitespace-nowrap z-10 shadow-md">
-                    {monthLabels[idx]}: {fm(val)}
+                    {monthLabels[idx]}: {fm(val, curSym)}
                   </div>
                 </div>
                 <span className="text-[9.5px] text-[#b5a898]">{monthLabels[idx]}</span>
@@ -325,17 +343,17 @@ export function DashboardView({
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-[#3d5a4c]" />
                 <span className="flex-1 text-[#4a4440]">Paid</span>
-                <span className="font-semibold text-[#2c2825]">{fm(paidVal)}</span>
+                <span className="font-semibold text-[#2c2825]">{fm(paidVal, curSym)}</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-[#c9963e]" />
                 <span className="flex-1 text-[#4a4440]">Unpaid</span>
-                <span className="font-semibold text-[#2c2825]">{fm(unpVal)}</span>
+                <span className="font-semibold text-[#2c2825]">{fm(unpVal, curSym)}</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-[#c4623a]" />
                 <span className="flex-1 text-[#4a4440]">Overdue</span>
-                <span className="font-semibold text-[#2c2825]">{fm(ovdVal)}</span>
+                <span className="font-semibold text-[#2c2825]">{fm(ovdVal, curSym)}</span>
               </div>
             </div>
           </div>
@@ -375,24 +393,27 @@ export function DashboardView({
           </div>
 
           <div className="space-y-3">
-            {topClients.map(c => (
-              <div key={c.id} className="flex items-center gap-3 py-2 border-b border-[#f0ebe3] last:border-none">
-                <div
-                  className="w-10 h-10 rounded-[12px] flex items-center justify-center font-serif-playfair text-[14px] font-medium shrink-0"
-                  style={{ backgroundColor: `${c.color}15`, color: c.color }}
-                >
-                  {c.initials || c.name.slice(0, 2).toUpperCase()}
+            {topClients.map(c => {
+              const stats = clientStatsMap.get(c.id) || { projectCount: c.projects || 0, revenue: c.value || 0 };
+              return (
+                <div key={c.id} className="flex items-center gap-3 py-2 border-b border-[#f0ebe3] last:border-none">
+                  <div
+                    className="w-10 h-10 rounded-[12px] flex items-center justify-center font-serif-playfair text-[14px] font-medium shrink-0"
+                    style={{ backgroundColor: `${c.color}15`, color: c.color }}
+                  >
+                    {c.initials || c.name.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[13px] font-medium text-[#2c2825] truncate">{c.name}</div>
+                    <div className="text-[11px] text-[#b5a898] truncate">{c.industry}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[13px] font-semibold text-[#2c2825]">{fmF(stats.revenue, curSym)}</div>
+                    <div className="text-[10px] text-[#b5a898]">{stats.projectCount} proj</div>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-[13px] font-medium text-[#2c2825] truncate">{c.name}</div>
-                  <div className="text-[11px] text-[#b5a898] truncate">{c.industry}</div>
-                </div>
-                <div className="text-right">
-                  <div className="text-[13px] font-semibold text-[#2c2825]">{fmF(c.value)}</div>
-                  <div className="text-[10px] text-[#b5a898]">{c.projects || 1} proj</div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
@@ -426,7 +447,7 @@ export function DashboardView({
           </div>
         ) : (
           <div className="font-serif-playfair text-[19px] text-[#2c2825]">
-            <b className="text-[#3d5a4c]">{fmF(totalEarned)}</b> of {fmF(goalTarget)}
+            <b className="text-[#3d5a4c]">{fmF(totalEarned, curSym)}</b> of {fmF(goalTarget, curSym)}
           </div>
         )}
 
@@ -437,7 +458,7 @@ export function DashboardView({
           />
         </div>
         <div className="text-[11px] text-[#b5a898]">
-          {goalPercentage}% of {fmF(goalTarget)} goal reached
+          {goalPercentage}% of {fmF(goalTarget, curSym)} goal reached
         </div>
 
         {/* Quick Action Buttons */}

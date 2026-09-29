@@ -9,6 +9,7 @@ interface ClientsViewProps {
   clients: Client[];
   projects?: Project[];
   invoices?: Invoice[];
+  currency?: string;
   onOpenModal: (type: 'client', id?: string) => void;
   onConfirmDelete: (type: 'client', id: string) => void;
   searchText: string;
@@ -18,6 +19,7 @@ export function ClientsView({
   clients,
   projects = [],
   invoices = [],
+  currency = '₹',
   onOpenModal,
   onConfirmDelete,
   searchText
@@ -85,9 +87,18 @@ export function ClientsView({
                   </div>
                   <div className="flex justify-between pt-1">
                     <span className="text-[#b5a898]">Total Revenue</span>
-                    <strong className="text-[#3d5a4c] font-semibold">{fmF(displayRevenue)}</strong>
+                    <strong className="text-[#3d5a4c] font-semibold">{fmF(displayRevenue, currency)}</strong>
                   </div>
                 </div>
+
+                {c.notes && (
+                  <div className="mt-3 pt-2.5 border-t border-[#f0ebe3]">
+                    <div className="text-[10.5px] font-medium uppercase tracking-wider text-[#b5a898] mb-1">Notes</div>
+                    <p className="text-[11.5px] text-[#5a524c] bg-[#faf8f5] p-2.5 rounded-[8px] border border-[#f0ebe3] line-clamp-3 leading-relaxed whitespace-pre-wrap">
+                      {c.notes}
+                    </p>
+                  </div>
+                )}
 
               <div className="flex gap-2 mt-4 pt-3 border-t border-[#f0ebe3]">
                 <button

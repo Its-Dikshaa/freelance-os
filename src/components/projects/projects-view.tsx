@@ -8,12 +8,13 @@ import { Edit2, Trash2, AlertTriangle } from 'lucide-react';
 
 interface ProjectsViewProps {
   projects: Project[];
+  currency?: string;
   onOpenModal: (type: 'project', id?: string) => void;
   onConfirmDelete: (type: 'project', id: string) => void;
   searchText: string;
 }
 
-export function ProjectsView({ projects, onOpenModal, onConfirmDelete, searchText }: ProjectsViewProps) {
+export function ProjectsView({ projects, currency = '₹', onOpenModal, onConfirmDelete, searchText }: ProjectsViewProps) {
   const [filterStatus, setFilterStatus] = useState<'all' | ProjectStatus>('all');
 
   let list = [...projects];
@@ -100,7 +101,7 @@ export function ProjectsView({ projects, onOpenModal, onConfirmDelete, searchTex
                       <span className="text-[11px] text-[#b5a898]">{p.progress}%</span>
                     </div>
                   </td>
-                  <td className="py-3 px-3 text-[13px] font-semibold text-[#2c2825]">{fmF(p.budget)}</td>
+                  <td className="py-3 px-3 text-[13px] font-semibold text-[#2c2825]">{fmF(p.budget, currency)}</td>
                   <td className="py-3 px-3 text-[12px]">
                     {p.deadline ? (
                       isOverdue(p.deadline) && p.status !== 'Done' ? (

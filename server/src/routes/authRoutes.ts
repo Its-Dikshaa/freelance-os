@@ -107,4 +107,39 @@ router.get('/me', authenticateToken, async (req: AuthenticatedRequest, res: Resp
   }
 });
 
+// POST /api/auth/change-password
+router.post('/change-password', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Current password and new password are required' });
+    }
+
+    const passwordError = validatePassword(newPassword);
+    if (passwordError) {
+      return res.status(400).json({ error: passwordError });
+    }
+
+    const user = await User.findById(req.userId);
+    if (!user || !user.password) {
+      return res.status(404).json({ error: 'User account not found' });
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ error: 'Incorrect current password' });
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
+
+    return res.json({ message: 'Password changed successfully' });
+  } catch (err) {
+    console.error('[Change Password Error]', err);
+    const message = err instanceof Error ? err.message : 'Failed to change password';
+    return res.status(500).json({ error: message });
+  }
+});
+
 export default router;

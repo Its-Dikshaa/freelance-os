@@ -10,9 +10,10 @@ interface ModalProps {
   children: React.ReactNode;
   onSave?: () => void;
   saveText?: string;
+  maxWidth?: string;
 }
 
-export function Modal({ isOpen, onClose, title, children, onSave, saveText = 'Save' }: ModalProps) {
+export function Modal({ isOpen, onClose, title, children, onSave, saveText = 'Save', maxWidth = 'max-w-[480px]' }: ModalProps) {
   if (!isOpen) return null;
 
   return (
@@ -22,7 +23,7 @@ export function Modal({ isOpen, onClose, title, children, onSave, saveText = 'Sa
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="bg-white border border-[#e8e1d7] rounded-[20px] p-7 w-[92%] max-w-[480px] max-h-[90vh] overflow-y-auto shadow-2xl animate-fade-up">
+      <div className={`bg-white border border-[#e8e1d7] rounded-[20px] p-7 w-[92%] ${maxWidth} max-h-[90vh] overflow-y-auto shadow-2xl animate-fade-up`}>
         <div className="font-serif-playfair text-[18px] font-medium text-[#2c2825] mb-5 flex justify-between items-center">
           <span>{title}</span>
           <button

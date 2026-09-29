@@ -1,20 +1,22 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { UserSettings } from '@/types';
 import { useToast } from '@/components/ui/toast';
 import {
   RotateCcw, Download, Trash2, Save, LogOut, User, FileText,
   ShieldCheck, Database, Building, CreditCard, Mail, MapPin,
-  ChevronRight, IndianRupee
+  ChevronRight, Upload, KeyRound, Eye, EyeOff
 } from 'lucide-react';
 import { ini } from '@/lib/storage';
+import { apiChangePassword } from '@/lib/api';
 
 interface SettingsViewProps {
   settings: UserSettings;
   onSaveSettings: (newSettings: UserSettings) => void;
   onShowOnboarding: () => void;
   onExportJSON: () => void;
+  onImportJSON?: (file: File) => void;
   onResetAll: () => void;
   onLogout?: () => void;
   apiConnected: boolean;
@@ -27,6 +29,7 @@ export function SettingsView({
   onSaveSettings,
   onShowOnboarding,
   onExportJSON,
+  onImportJSON,
   onResetAll,
   onLogout,
   apiConnected
@@ -44,6 +47,17 @@ export function SettingsView({
   const [gst, setGst] = useState(settings.gst || '');
   const [bank, setBank] = useState(settings.bank || '');
   const [prefix, setPrefix] = useState(settings.prefix || 'INV');
+  const [currency, setCurrency] = useState(settings.currency || '₹');
+
+  // Change Password States
+  const [currPassword, setCurrPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [changingPass, setChangingPass] = useState(false);
+
+  // File import ref
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Keep form inputs synchronized whenever `settings` prop updates (e.g. from apiGetMe or parent update)
   const [prevSettings, setPrevSettings] = useState(settings);
@@ -58,6 +72,7 @@ export function SettingsView({
     setGst(settings.gst || '');
     setBank(settings.bank || '');
     setPrefix(settings.prefix || 'INV');
+    setCurrency(settings.currency || '₹');
   }
 
   const getCurrentSettingsPayload = (): UserSettings => ({
@@ -70,7 +85,8 @@ export function SettingsView({
     biz: biz.trim(),
     gst: gst.trim(),
     bank: bank.trim(),
-    prefix: prefix.trim() || 'INV'
+    prefix: prefix.trim() || 'INV',
+    currency: currency.trim() || '₹'
   });
 
   const handleSaveProfile = () => {
@@ -81,6 +97,34 @@ export function SettingsView({
   const handleSaveInvoicing = () => {
     onSaveSettings(getCurrentSettingsPayload());
     toast('Invoicing settings saved!');
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currPassword) {
+      toast('Please enter your current password', 'error');
+      return;
+    }
+    if (!newPassword || newPassword.length < 6) {
+      toast('New password must be at least 6 characters long', 'error');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast('New password and confirmation do not match', 'error');
+      return;
+    }
+    try {
+      setChangingPass(true);
+      await apiChangePassword(currPassword, newPassword);
+      toast('Password changed successfully!');
+      setCurrPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Failed to update password', 'error');
+    } finally {
+      setChangingPass(false);
+    }
   };
 
   const handleLogoutAction = () => {
@@ -268,7 +312,7 @@ export function SettingsView({
 
                 <div>
                   <label className="text-[11px] font-semibold text-[#5a524c] block mb-1.5">
-                    Hourly Rate (₹)
+                    Hourly Rate ({currency})
                   </label>
                   <div className="relative">
                     <input
@@ -278,7 +322,7 @@ export function SettingsView({
                       placeholder="1500"
                       className="w-full bg-[#f7f4ef] border border-[#e8e1d7] rounded-[10px] pl-9 pr-3.5 py-2.5 text-[13px] text-[#2c2825] outline-none focus:border-[#3d5a4c] focus:ring-2 focus:ring-[#3d5a4c]/15 transition-all"
                     />
-                    <IndianRupee className="w-4 h-4 text-[#b5a898] absolute left-3 top-3" />
+                    <span className="text-[13px] font-semibold text-[#b5a898] absolute left-3.5 top-2.5">{currency}</span>
                   </div>
                 </div>
               </div>
@@ -303,7 +347,7 @@ export function SettingsView({
                     Invoicing & Payment Setup
                   </h3>
                   <p className="text-[12px] text-[#7a706a] mt-0.5">
-                    Configure your business name, GST number, invoice numbering, and UPI details.
+                    Configure your business name, default currency, invoice numbering, and payment details.
                   </p>
                 </div>
                 <div className="w-8 h-8 rounded-[10px] bg-[#c9963e]/10 text-[#c9963e] flex items-center justify-center">
@@ -330,15 +374,23 @@ export function SettingsView({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-[11px] font-semibold text-[#5a524c] block mb-1.5">
-                    GST Number (Optional)
+                    Default Currency
                   </label>
-                  <input
-                    type="text"
-                    value={gst}
-                    onChange={e => setGst(e.target.value)}
-                    placeholder="07AAAAA0000A1Z5"
-                    className="w-full bg-[#f7f4ef] border border-[#e8e1d7] rounded-[10px] px-3.5 py-2.5 text-[13px] text-[#2c2825] outline-none focus:border-[#3d5a4c] focus:ring-2 focus:ring-[#3d5a4c]/15 transition-all"
-                  />
+                  <select
+                    value={currency}
+                    onChange={e => setCurrency(e.target.value)}
+                    className="w-full bg-[#f7f4ef] border border-[#e8e1d7] rounded-[10px] px-3.5 py-2.5 text-[13px] text-[#2c2825] outline-none focus:border-[#3d5a4c] focus:ring-2 focus:ring-[#3d5a4c]/15 transition-all cursor-pointer font-medium"
+                  >
+                    <option value="₹">₹ — Indian Rupee (INR)</option>
+                    <option value="$">$ — US Dollar (USD)</option>
+                    <option value="€">€ — Euro (EUR)</option>
+                    <option value="£">£ — British Pound (GBP)</option>
+                    <option value="A$">A$ — Australian Dollar (AUD)</option>
+                    <option value="C$">C$ — Canadian Dollar (CAD)</option>
+                    <option value="AED">AED — UAE Dirham</option>
+                    <option value="¥">¥ — Japanese Yen (JPY)</option>
+                    <option value="S$">S$ — Singapore Dollar (SGD)</option>
+                  </select>
                 </div>
 
                 <div>
@@ -353,6 +405,19 @@ export function SettingsView({
                     className="w-full bg-[#f7f4ef] border border-[#e8e1d7] rounded-[10px] px-3.5 py-2.5 text-[13px] text-[#2c2825] outline-none focus:border-[#3d5a4c] focus:ring-2 focus:ring-[#3d5a4c]/15 transition-all"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-semibold text-[#5a524c] block mb-1.5">
+                  GST Number (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={gst}
+                  onChange={e => setGst(e.target.value)}
+                  placeholder="07AAAAA0000A1Z5"
+                  className="w-full bg-[#f7f4ef] border border-[#e8e1d7] rounded-[10px] px-3.5 py-2.5 text-[13px] text-[#2c2825] outline-none focus:border-[#3d5a4c] focus:ring-2 focus:ring-[#3d5a4c]/15 transition-all"
+                />
               </div>
 
               <div>
@@ -432,6 +497,83 @@ export function SettingsView({
               </div>
 
               <div className="pt-2 space-y-3">
+                {/* Change Password Form Card */}
+                <div className="bg-[#f7f4ef]/60 border border-[#e8e1d7] rounded-[14px] p-4.5 space-y-3.5">
+                  <div className="flex items-center justify-between pb-2 border-b border-[#e8e1d7]">
+                    <div className="flex items-center gap-2">
+                      <KeyRound className="w-4 h-4 text-[#3d5a4c]" />
+                      <span className="text-[13px] font-medium text-[#2c2825]">Change Password</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="text-[11.5px] text-[#7a706a] hover:text-[#2c2825] flex items-center gap-1 cursor-pointer transition-colors"
+                    >
+                      {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      {showPassword ? 'Hide' : 'Show'} Passwords
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleChangePassword} className="space-y-3">
+                    <div>
+                      <label className="text-[11px] font-semibold text-[#5a524c] block mb-1">
+                        Current Password
+                      </label>
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        value={currPassword}
+                        onChange={e => setCurrPassword(e.target.value)}
+                        placeholder="Enter current password"
+                        required
+                        className="w-full bg-white border border-[#e8e1d7] rounded-[10px] px-3.5 py-2 text-[13px] text-[#2c2825] outline-none focus:border-[#3d5a4c] focus:ring-2 focus:ring-[#3d5a4c]/15 transition-all"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[11px] font-semibold text-[#5a524c] block mb-1">
+                          New Password (min 6 characters)
+                        </label>
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          value={newPassword}
+                          onChange={e => setNewPassword(e.target.value)}
+                          placeholder="New secure password"
+                          required
+                          minLength={6}
+                          className="w-full bg-white border border-[#e8e1d7] rounded-[10px] px-3.5 py-2 text-[13px] text-[#2c2825] outline-none focus:border-[#3d5a4c] focus:ring-2 focus:ring-[#3d5a4c]/15 transition-all"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[11px] font-semibold text-[#5a524c] block mb-1">
+                          Confirm New Password
+                        </label>
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          value={confirmPassword}
+                          onChange={e => setConfirmPassword(e.target.value)}
+                          placeholder="Confirm new password"
+                          required
+                          minLength={6}
+                          className="w-full bg-white border border-[#e8e1d7] rounded-[10px] px-3.5 py-2 text-[13px] text-[#2c2825] outline-none focus:border-[#3d5a4c] focus:ring-2 focus:ring-[#3d5a4c]/15 transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="pt-1 flex justify-end">
+                      <button
+                        type="submit"
+                        disabled={changingPass}
+                        className="px-4 py-2 bg-[#2c2825] hover:bg-[#4a4440] text-[#f7f4ef] rounded-[10px] text-[12.5px] font-medium transition-all flex items-center gap-2 shadow-sm cursor-pointer disabled:opacity-50"
+                      >
+                        <KeyRound className="w-3.5 h-3.5 text-[#e8c07a]" />
+                        {changingPass ? 'Updating...' : 'Update Password'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+
                 <div className="p-4 rounded-[14px] border border-[#c4623a]/20 bg-[#c4623a]/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
                     <div className="text-[13px] font-medium text-[#c4623a]">Log Out of Session</div>
@@ -474,7 +616,7 @@ export function SettingsView({
                     Data Management & Backups
                   </h3>
                   <p className="text-[12px] text-[#7a706a] mt-0.5">
-                    Export your full workspace data or perform a clean system data reset.
+                    Export your full workspace data or restore from a backup file.
                   </p>
                 </div>
                 <div className="w-8 h-8 rounded-[10px] bg-[#4a7fa5]/10 text-[#4a7fa5] flex items-center justify-center">
@@ -487,7 +629,7 @@ export function SettingsView({
                   <div>
                     <div className="text-[13px] font-medium text-[#2c2825]">Export JSON Data Backup</div>
                     <div className="text-[11.5px] text-[#7a706a]">
-                      Download a JSON file containing all projects, clients, tasks, and invoices.
+                      Download a JSON file containing all projects, clients, tasks, payments, and invoices.
                     </div>
                   </div>
                   <button
@@ -496,6 +638,36 @@ export function SettingsView({
                   >
                     <Download className="w-4 h-4 text-[#e8c07a]" /> Export JSON
                   </button>
+                </div>
+
+                <div className="p-4 rounded-[14px] border border-[#e8e1d7] bg-[#f7f4ef]/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <div className="text-[13px] font-medium text-[#2c2825]">Import JSON Data Backup</div>
+                    <div className="text-[11.5px] text-[#7a706a]">
+                      Restore workspace projects, clients, tasks, and invoices from an exported JSON file.
+                    </div>
+                  </div>
+                  <div>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={e => {
+                        const file = e.target.files?.[0];
+                        if (file && onImportJSON) {
+                          onImportJSON(file);
+                          e.target.value = '';
+                        }
+                      }}
+                      accept=".json,application/json"
+                      className="hidden"
+                    />
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="px-4 py-2.5 bg-white border border-[#e8e1d7] hover:border-[#3d5a4c] text-[#2c2825] rounded-[10px] text-[12.5px] font-medium transition-all flex items-center justify-center gap-2 shadow-sm cursor-pointer shrink-0"
+                    >
+                      <Upload className="w-4 h-4 text-[#3d5a4c]" /> Import JSON
+                    </button>
+                  </div>
                 </div>
 
                 <div className="p-4 rounded-[14px] border border-red-200 bg-red-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">

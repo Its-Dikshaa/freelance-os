@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useSyncExternalStore } from 'react';
 import {
-  Project, Client, Invoice, Task, Payment, UserSettings, ActivityItem, ProjectStatus, InvoiceStatus, TaskStatus
+  Project, Client, Invoice, Task, Payment, UserSettings, ActivityItem, ProjectStatus, InvoiceStatus, TaskStatus, TaskPriority, InvoiceItem
 } from '@/types';
 import {
   K, ld, sv, uid, rc, ini,
@@ -14,12 +14,12 @@ import {
   apiCreateTask, apiUpdateTask, apiDeleteTask,
   apiCreateClient, apiUpdateClient, apiDeleteClient,
   apiCreateInvoice, apiUpdateInvoice, apiDeleteInvoice, apiUpdateUser,
-  apiGetPayments, apiCreatePayment,
+  apiGetPayments, apiCreatePayment, apiDeletePayment,
   apiCheckHealth, apiSeed,
   apiGetMe, getAuthToken, clearAuthToken, AuthError
 } from '@/lib/api';
 import { toIsoDate, formatDisplayDate, isOverdue, getDaysDiff } from '@/lib/date-utils';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Plus, Trash2 } from 'lucide-react';
 
 import { ToastProvider, useToast } from '@/components/ui/toast';
 import { Modal } from '@/components/ui/modal';
@@ -70,7 +70,7 @@ function MainAppContent() {
   const [goalTarget, setGoalTarget] = useState<number>(() => ld(K.g, 500000));
 
   // Modal states
-  const [activeModal, setActiveModal] = useState<'project' | 'client' | 'invoice' | 'task' | null>(null);
+  const [activeModal, setActiveModal] = useState<'project' | 'client' | 'invoice' | 'task' | 'payment' | null>(null);
   const [editId, setEditId] = useState<string | undefined>(undefined);
 
   // Modal Form Inputs
@@ -95,14 +95,62 @@ function MainAppContent() {
   const [formIDue, setFormIDue] = useState('');
   const [formIStatus, setFormIStatus] = useState<InvoiceStatus>('Unpaid');
   const [formIDesc, setFormIDesc] = useState('');
+  const [formIItems, setFormIItems] = useState<InvoiceItem[]>([
+    { desc: 'Design & Development Services', qty: 1, rate: 25000 }
+  ]);
+
+  const handleAddInvoiceItem = () => {
+    setFormIItems(prev => [...prev, { desc: '', qty: 1, rate: 0 }]);
+  };
+
+  const handleUpdateInvoiceItem = (index: number, field: keyof InvoiceItem, value: string | number) => {
+    setFormIItems(prev => {
+      const next = [...prev];
+      if (field === 'desc') {
+        next[index] = { ...next[index], desc: String(value) };
+      } else if (field === 'qty') {
+        next[index] = { ...next[index], qty: Math.max(1, Number(value) || 1) };
+      } else if (field === 'rate') {
+        next[index] = { ...next[index], rate: Math.max(0, Number(value) || 0) };
+      }
+      return next;
+    });
+  };
+
+  const handleRemoveInvoiceItem = (index: number) => {
+    if (formIItems.length <= 1) return;
+    setFormIItems(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const invoiceSubtotal = formIItems.reduce((acc, it) => acc + (Number(it.qty) || 0) * (Number(it.rate) || 0), 0);
 
   const [formTTitle, setFormTTitle] = useState('');
   const [formTProject, setFormTProject] = useState('');
   const [formTStatus, setFormTStatus] = useState<TaskStatus>('Todo');
   const [formTDue, setFormTDue] = useState('');
+  const [formTPriority, setFormTPriority] = useState<TaskPriority>('Medium');
+
+  // Payment Form Inputs
+  const [formPayTxId, setFormPayTxId] = useState('');
+  const [formPayInvoice, setFormPayInvoice] = useState('');
+  const [formPayClient, setFormPayClient] = useState('');
+  const [formPayAmt, setFormPayAmt] = useState<number>(0);
+  const [formPayDate, setFormPayDate] = useState('');
+  const [formPayMethod, setFormPayMethod] = useState('UPI');
+  const [formPayStatus, setFormPayStatus] = useState<Payment['status']>('Completed');
+
+  const handleSelectInvoiceForPayment = (invoiceNum: string) => {
+    setFormPayInvoice(invoiceNum);
+    if (!invoiceNum) return;
+    const inv = invoices.find(i => i.num.toLowerCase().trim() === invoiceNum.toLowerCase().trim());
+    if (inv) {
+      setFormPayClient(inv.client);
+      setFormPayAmt(inv.amount);
+    }
+  };
 
   // Delete Confirm states
-  const [confirmDeleteObj, setConfirmDeleteObj] = useState<{ type: 'project' | 'client' | 'invoice' | 'task'; id: string } | null>(null);
+  const [confirmDeleteObj, setConfirmDeleteObj] = useState<{ type: 'project' | 'client' | 'invoice' | 'task' | 'payment'; id: string } | null>(null);
 
   const loadUserData = async () => {
     apiCheckHealth().then(setApiConnected);
@@ -194,7 +242,7 @@ function MainAppContent() {
   };
 
   // Open Creation / Editing Modals
-  const handleOpenModal = (type: 'project' | 'client' | 'invoice' | 'task', id?: string, extraStatus?: TaskStatus) => {
+  const handleOpenModal = (type: 'project' | 'client' | 'invoice' | 'task' | 'payment', id?: string, extraStatus?: TaskStatus) => {
     setActiveModal(type);
     setEditId(id);
 
@@ -224,7 +272,8 @@ function MainAppContent() {
         date: new Date().toISOString().slice(0, 10),
         due: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
         status: 'Unpaid' as InvoiceStatus,
-        desc: ''
+        desc: 'Services rendered',
+        items: [{ desc: 'Services rendered', qty: 1, rate: 25000 }]
       };
       setFormINum(item.num);
       setFormIClient(item.client || (clients[0]?.name || ''));
@@ -232,15 +281,39 @@ function MainAppContent() {
       setFormIDate(item.date);
       setFormIDue(item.due);
       setFormIStatus(item.status);
-      setFormIDesc(item.desc);
+      setFormIDesc(item.desc || '');
+      if (item.items && item.items.length > 0) {
+        setFormIItems(item.items.map(it => ({
+          desc: it.desc || '',
+          qty: Number(it.qty) || 1,
+          rate: Number(it.rate) || 0
+        })));
+      } else {
+        setFormIItems([{
+          desc: item.desc || 'Services rendered',
+          qty: 1,
+          rate: Number(item.amount) || 0
+        }]);
+      }
     } else if (type === 'task') {
       const item = tasks.find(t => t.id === id) || {
-        title: '', project: projects[0]?.name || '', due: new Date().toISOString().slice(0, 10), status: extraStatus || 'Todo'
+        title: '', project: projects[0]?.name || '', due: new Date().toISOString().slice(0, 10), status: (extraStatus || 'Todo') as TaskStatus, priority: 'Medium' as TaskPriority
       };
       setFormTTitle(item.title);
       setFormTProject(item.project || (projects[0]?.name || ''));
       setFormTStatus(item.status);
       setFormTDue(toIsoDate(item.due || new Date().toISOString().slice(0, 10)));
+      setFormTPriority(item.priority || 'Medium');
+    } else if (type === 'payment') {
+      setFormPayTxId(`TXN-${Math.floor(100000 + Math.random() * 900000)}`);
+      const unpaidInvs = invoices.filter(i => i.status !== 'Paid');
+      const targetInv = unpaidInvs[0] || invoices[0];
+      setFormPayInvoice(targetInv ? targetInv.num : '');
+      setFormPayClient(targetInv ? targetInv.client : (clients[0]?.name || ''));
+      setFormPayAmt(targetInv ? targetInv.amount : 10000);
+      setFormPayDate(new Date().toISOString().slice(0, 10));
+      setFormPayMethod('UPI');
+      setFormPayStatus('Completed');
     }
   };
 
@@ -300,15 +373,36 @@ function MainAppContent() {
         toast('Please create or select a client first', 'error');
         return;
       }
+      const calculatedAmt = formIItems.reduce((acc, it) => acc + (Number(it.qty) || 0) * (Number(it.rate) || 0), 0);
+      const invoiceAmt = calculatedAmt || formIAmt;
+      const invoiceDesc = formIDesc.trim() || formIItems.map(it => it.desc).filter(Boolean).join(', ') || 'Services rendered';
+
       if (editId) {
-        const itemToUpdate = { num: formINum, client: formIClient, amount: formIAmt, date: formIDate, due: formIDue, status: formIStatus, desc: formIDesc };
+        const itemToUpdate = {
+          num: formINum,
+          client: formIClient,
+          amount: invoiceAmt,
+          date: formIDate,
+          due: formIDue,
+          status: formIStatus,
+          desc: invoiceDesc,
+          items: formIItems
+        };
         const updated = invoices.map(i => i.id === editId ? { ...i, ...itemToUpdate } : i);
         setInvoices(updated);
         sv(K.i, updated);
         apiUpdateInvoice(editId, itemToUpdate).catch(err => toast(err.message || 'Failed to sync invoice update', 'error'));
       } else {
         const newInv: Invoice = {
-          id: uid(), num: formINum, client: formIClient, amount: formIAmt, date: formIDate, due: formIDue, status: formIStatus, desc: formIDesc
+          id: uid(),
+          num: formINum,
+          client: formIClient,
+          amount: invoiceAmt,
+          date: formIDate,
+          due: formIDue,
+          status: formIStatus,
+          desc: invoiceDesc,
+          items: formIItems
         };
         const updated = [newInv, ...invoices];
         setInvoices(updated);
@@ -322,20 +416,54 @@ function MainAppContent() {
         return;
       }
       if (editId) {
-        const itemToUpdate = { title: formTTitle, project: formTProject, status: formTStatus, due: formTDue };
+        const itemToUpdate = { title: formTTitle, project: formTProject, status: formTStatus, due: formTDue, priority: formTPriority };
         const updated = tasks.map(t => t.id === editId ? { ...t, ...itemToUpdate } : t);
         setTasks(updated);
         sv(K.t, updated);
         apiUpdateTask(editId, itemToUpdate).catch(err => toast(err.message || 'Failed to sync task update', 'error'));
       } else {
         const newTask: Task = {
-          id: uid(), title: formTTitle, project: formTProject, status: formTStatus, due: formTDue
+          id: uid(), title: formTTitle, project: formTProject, status: formTStatus, due: formTDue, priority: formTPriority
         };
         const updated = [newTask, ...tasks];
         setTasks(updated);
         sv(K.t, updated);
         apiCreateTask(newTask).catch(err => toast(err.message || 'Failed to sync new task', 'error'));
       }
+    } else if (activeModal === 'payment') {
+      if (!formPayClient.trim()) {
+        toast('Client name is required', 'error');
+        return;
+      }
+      if (formPayAmt <= 0) {
+        toast('Payment amount must be greater than 0', 'error');
+        return;
+      }
+      const newPayment: Payment = {
+        id: uid(),
+        txId: formPayTxId.trim() || `TXN-${Math.floor(100000 + Math.random() * 900000)}`,
+        invoiceNum: formPayInvoice.trim(),
+        client: formPayClient.trim(),
+        amount: Number(formPayAmt) || 0,
+        date: formPayDate || new Date().toISOString().slice(0, 10),
+        method: formPayMethod || 'Direct Transfer',
+        status: formPayStatus || 'Completed'
+      };
+      const updated = [newPayment, ...payments];
+      setPayments(updated);
+      sv(K.pay, updated);
+      apiCreatePayment(newPayment).catch(err => toast(err.message || 'Failed to sync payment', 'error'));
+
+      if (formPayInvoice && formPayStatus === 'Completed') {
+        const targetInv = invoices.find(i => i.num.toLowerCase().trim() === formPayInvoice.toLowerCase().trim());
+        if (targetInv && targetInv.status !== 'Paid') {
+          const updatedInv = invoices.map(i => i.id === targetInv.id ? { ...i, status: 'Paid' as InvoiceStatus } : i);
+          setInvoices(updatedInv);
+          sv(K.i, updatedInv);
+          apiUpdateInvoice(targetInv.id, { status: 'Paid' }).catch(() => {});
+        }
+      }
+      addActivity(`Payment of ₹${(Number(formPayAmt) || 0).toLocaleString('en-IN')} recorded for ${formPayClient}`, '#3d5a4c');
     }
 
     setActiveModal(null);
@@ -367,6 +495,12 @@ function MainAppContent() {
       setTasks(updated);
       sv(K.t, updated);
       apiDeleteTask(id).catch(err => toast(err.message || 'Failed to sync task deletion', 'error'));
+    } else if (type === 'payment') {
+      const updated = payments.filter(p => p.id !== id);
+      setPayments(updated);
+      sv(K.pay, updated);
+      apiDeletePayment(id).catch(err => toast(err.message || 'Failed to sync payment deletion', 'error'));
+      addActivity('Payment record deleted', '#c4623a');
     }
 
     setConfirmDeleteObj(null);
@@ -388,7 +522,15 @@ function MainAppContent() {
         method: 'Direct Transfer',
         status: 'Completed'
       }))
-      .then(newPayment => setPayments(prev => [newPayment, ...prev]))
+      .then(newPay => {
+        if (newPay) {
+          setPayments(prev => {
+            const next = [newPay, ...prev];
+            sv(K.pay, next);
+            return next;
+          });
+        }
+      })
       .catch(err => toast(err.message || 'Failed to sync invoice payment status', 'error'));
     addActivity(`Invoice ${inv.num} marked as Paid — ₹${inv.amount.toLocaleString('en-IN')}`, '#3d5a4c');
     toast(`Invoice ${inv.num} marked as Paid!`);
@@ -420,7 +562,7 @@ function MainAppContent() {
   };
 
   const handleExportJSON = () => {
-    const data = { projects, clients, invoices, tasks, settings, actLog, goalTarget };
+    const data = { projects, clients, invoices, tasks, payments, settings, actLog, goalTarget };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -428,6 +570,66 @@ function MainAppContent() {
     a.download = `FreelanceOS_Backup_${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     toast('Data exported to JSON!');
+  };
+
+  const handleImportJSON = async (file: File) => {
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      if (typeof parsed !== 'object' || parsed === null) {
+        throw new Error('Invalid JSON file format');
+      }
+
+      let count = 0;
+      if (Array.isArray(parsed.projects)) {
+        setProjects(parsed.projects);
+        sv(K.p, parsed.projects);
+        count++;
+      }
+      if (Array.isArray(parsed.clients)) {
+        setClients(parsed.clients);
+        sv(K.c, parsed.clients);
+        count++;
+      }
+      if (Array.isArray(parsed.invoices)) {
+        setInvoices(parsed.invoices);
+        sv(K.i, parsed.invoices);
+        count++;
+      }
+      if (Array.isArray(parsed.tasks)) {
+        setTasks(parsed.tasks);
+        sv(K.t, parsed.tasks);
+        count++;
+      }
+      if (Array.isArray(parsed.payments)) {
+        setPayments(parsed.payments);
+        sv(K.pay, parsed.payments);
+        count++;
+      }
+      if (parsed.settings && typeof parsed.settings === 'object') {
+        setSettings(parsed.settings);
+        sv(K.s, parsed.settings);
+        apiUpdateUser(parsed.settings).catch(() => {});
+        count++;
+      }
+      if (Array.isArray(parsed.actLog)) {
+        setActLog(parsed.actLog);
+        sv(K.a, parsed.actLog);
+      }
+      if (typeof parsed.goalTarget === 'number') {
+        setGoalTarget(parsed.goalTarget);
+        sv(K.g, parsed.goalTarget);
+      }
+
+      if (count === 0) {
+        throw new Error('No recognized FreelanceOS data found in file');
+      }
+
+      addActivity('Restored workspace data from backup file', '#3d5a4c');
+      toast(`Workspace backup restored successfully (${count} datasets updated)!`);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Failed to import backup file', 'error');
+    }
   };
 
   const handleResetAll = async () => {
@@ -511,6 +713,7 @@ function MainAppContent() {
             else if (currentPg === 'tasks') handleOpenModal('task');
             else if (currentPg === 'clients') handleOpenModal('client');
             else if (currentPg === 'invoices') handleOpenModal('invoice');
+            else if (currentPg === 'payments') handleOpenModal('payment');
           }}
           apiConnected={apiConnected}
         />
@@ -538,6 +741,7 @@ function MainAppContent() {
           {currentPg === 'projects' && (
             <ProjectsView
               projects={projects}
+              currency={settings.currency || '₹'}
               onOpenModal={handleOpenModal}
               onConfirmDelete={(type, id) => setConfirmDeleteObj({ type, id })}
               searchText={searchText}
@@ -559,6 +763,7 @@ function MainAppContent() {
               clients={clients}
               projects={projects}
               invoices={invoices}
+              currency={settings.currency || '₹'}
               onOpenModal={handleOpenModal}
               onConfirmDelete={(type, id) => setConfirmDeleteObj({ type, id })}
               searchText={searchText}
@@ -581,11 +786,14 @@ function MainAppContent() {
             <PaymentsView
               payments={payments}
               invoices={invoices}
+              currency={settings.currency || '₹'}
               searchText={searchText}
               onViewInvoice={(invoiceNum: string) => {
                 setSearchText(invoiceNum);
                 setCurrentPg('invoices');
               }}
+              onRecordPayment={() => handleOpenModal('payment')}
+              onConfirmDelete={(id: string) => setConfirmDeleteObj({ type: 'payment', id })}
             />
           )}
 
@@ -599,6 +807,7 @@ function MainAppContent() {
                 setIsOnboarded(false);
               }}
               onExportJSON={handleExportJSON}
+              onImportJSON={handleImportJSON}
               onResetAll={handleResetAll}
               onLogout={handleLogout}
               apiConnected={apiConnected}
@@ -611,13 +820,16 @@ function MainAppContent() {
       <Modal
         isOpen={!!activeModal}
         onClose={() => setActiveModal(null)}
+        maxWidth={activeModal === 'invoice' ? 'max-w-[620px]' : activeModal === 'payment' ? 'max-w-[500px]' : 'max-w-[480px]'}
         title={
           activeModal === 'project' ? (editId ? 'Edit Project' : 'New Project') :
           activeModal === 'client' ? (editId ? 'Edit Client' : 'New Client') :
           activeModal === 'invoice' ? (editId ? 'Edit Invoice' : 'New Invoice') :
-          activeModal === 'task' ? (editId ? 'Edit Task' : 'New Task') : ''
+          activeModal === 'task' ? (editId ? 'Edit Task' : 'New Task') :
+          activeModal === 'payment' ? 'Record Payment' : ''
         }
         onSave={handleSaveModal}
+        saveText={activeModal === 'payment' ? 'Record Payment' : 'Save'}
       >
         {activeModal === 'project' && (
           <div className="space-y-3.5">
@@ -772,7 +984,7 @@ function MainAppContent() {
                 <select
                   value={formIStatus}
                   onChange={e => setFormIStatus(e.target.value as InvoiceStatus)}
-                  className="w-full bg-[#f7f4ef] border border-[#e8e1d7] rounded-[10px] px-3.5 py-2.5 text-[13px] outline-none"
+                  className="w-full bg-[#f7f4ef] border border-[#e8e1d7] rounded-[10px] px-3.5 py-2.5 text-[13px] outline-none cursor-pointer"
                 >
                   <option value="Unpaid">Unpaid</option>
                   <option value="Paid">Paid</option>
@@ -780,6 +992,7 @@ function MainAppContent() {
                 </select>
               </div>
             </div>
+
             <div>
               <label className="text-[10.5px] font-bold text-[#7a706a] uppercase tracking-wider block mb-1">Client *</label>
               <select
@@ -794,15 +1007,7 @@ function MainAppContent() {
                 )}
               </select>
             </div>
-            <div>
-              <label className="text-[10.5px] font-bold text-[#7a706a] uppercase tracking-wider block mb-1">Amount (₹) *</label>
-              <input
-                type="number"
-                value={formIAmt}
-                onChange={e => setFormIAmt(Number(e.target.value))}
-                className="w-full bg-[#f7f4ef] border border-[#e8e1d7] rounded-[10px] px-3.5 py-2.5 text-[13px] outline-none"
-              />
-            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-[10.5px] font-bold text-[#7a706a] uppercase tracking-wider block mb-1">Issue Date</label>
@@ -823,14 +1028,93 @@ function MainAppContent() {
                 />
               </div>
             </div>
+
+            {/* Deliverables / Line Items */}
+            <div className="space-y-2 pt-2 border-t border-[#f0ebe3]">
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="text-[11px] font-bold text-[#2c2825] uppercase tracking-wider block">
+                    Deliverables & Items ({formIItems.length})
+                  </label>
+                  <p className="text-[10.5px] text-[#b5a898]">Add multiple items with quantity and unit rates</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAddInvoiceItem}
+                  className="text-[11.5px] font-medium text-[#3d5a4c] bg-[#3d5a4c]/10 hover:bg-[#3d5a4c]/18 px-2.5 py-1.5 rounded-[8px] border border-[#3d5a4c]/20 flex items-center gap-1 transition-colors cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Add Item
+                </button>
+              </div>
+
+              <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                {formIItems.map((item, idx) => (
+                  <div key={idx} className="flex items-center gap-2 bg-[#faf8f5] border border-[#e8e1d7] rounded-[10px] p-2">
+                    <div className="flex-1 min-w-0">
+                      <input
+                        type="text"
+                        value={item.desc}
+                        onChange={e => handleUpdateInvoiceItem(idx, 'desc', e.target.value)}
+                        placeholder="Deliverable description..."
+                        className="w-full bg-white border border-[#e8e1d7] rounded-[8px] px-2.5 py-1.5 text-[12.5px] outline-none placeholder:text-[#b5a898] focus:border-[#8fac99]"
+                      />
+                    </div>
+                    <div className="w-16 shrink-0">
+                      <input
+                        type="number"
+                        min="1"
+                        value={item.qty}
+                        onChange={e => handleUpdateInvoiceItem(idx, 'qty', e.target.value)}
+                        placeholder="Qty"
+                        className="w-full bg-white border border-[#e8e1d7] rounded-[8px] px-2 py-1.5 text-[12px] text-center outline-none focus:border-[#8fac99]"
+                        title="Quantity"
+                      />
+                    </div>
+                    <div className="w-24 shrink-0">
+                      <input
+                        type="number"
+                        min="0"
+                        value={item.rate}
+                        onChange={e => handleUpdateInvoiceItem(idx, 'rate', e.target.value)}
+                        placeholder="Rate ₹"
+                        className="w-full bg-white border border-[#e8e1d7] rounded-[8px] px-2 py-1.5 text-[12px] text-right outline-none focus:border-[#8fac99]"
+                        title="Rate per unit"
+                      />
+                    </div>
+                    <div className="w-20 shrink-0 text-right font-medium text-[12.5px] text-[#2c2825]">
+                      ₹{((Number(item.qty) || 1) * (Number(item.rate) || 0)).toLocaleString('en-IN')}
+                    </div>
+                    {formIItems.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveInvoiceItem(idx)}
+                        className="p-1 text-[#c4623a] hover:bg-[#c4623a]/12 rounded-[6px] transition-colors shrink-0 cursor-pointer"
+                        title="Remove deliverable"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Subtotal Banner */}
+              <div className="flex items-center justify-between bg-[#f0ebe3]/80 rounded-[10px] px-3.5 py-2 mt-2 border border-[#e8e1d7]/60">
+                <span className="text-[12px] font-medium text-[#7a706a]">Calculated Total Amount</span>
+                <span className="text-[15px] font-bold text-[#3d5a4c]">
+                  ₹{invoiceSubtotal.toLocaleString('en-IN')}
+                </span>
+              </div>
+            </div>
+
             <div>
-              <label className="text-[10.5px] font-bold text-[#7a706a] uppercase tracking-wider block mb-1">Description / Deliverable</label>
+              <label className="text-[10.5px] font-bold text-[#7a706a] uppercase tracking-wider block mb-1">Optional Scope / Notes</label>
               <input
                 type="text"
                 value={formIDesc}
                 onChange={e => setFormIDesc(e.target.value)}
-                placeholder="Design Services / Phase 1"
-                className="w-full bg-[#f7f4ef] border border-[#e8e1d7] rounded-[10px] px-3.5 py-2.5 text-[13px] outline-none"
+                placeholder="Overall invoice note or scope summary..."
+                className="w-full bg-[#f7f4ef] border border-[#e8e1d7] rounded-[10px] px-3.5 py-2 text-[12.5px] outline-none"
               />
             </div>
           </div>
@@ -859,7 +1143,7 @@ function MainAppContent() {
                 {projects.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
               </select>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <label className="text-[10.5px] font-bold text-[#7a706a] uppercase tracking-wider block mb-1">Status</label>
                 <select
@@ -871,6 +1155,18 @@ function MainAppContent() {
                   <option value="InProgress">In Progress</option>
                   <option value="Review">In Review</option>
                   <option value="Done">Done</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-[10.5px] font-bold text-[#7a706a] uppercase tracking-wider block mb-1">Priority</label>
+                <select
+                  value={formTPriority}
+                  onChange={e => setFormTPriority(e.target.value as TaskPriority)}
+                  className="w-full bg-[#f7f4ef] border border-[#e8e1d7] rounded-[10px] px-3.5 py-2.5 text-[13px] outline-none cursor-pointer focus:border-[#2c2825]"
+                >
+                  <option value="High">🔴 High</option>
+                  <option value="Medium">🟡 Medium</option>
+                  <option value="Low">🔵 Low</option>
                 </select>
               </div>
               <div>
@@ -892,6 +1188,115 @@ function MainAppContent() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {activeModal === 'payment' && (
+          <div className="space-y-3.5">
+            <div>
+              <label className="text-[10.5px] font-bold text-[#7a706a] uppercase tracking-wider block mb-1">
+                Link to Invoice (Optional)
+              </label>
+              <select
+                value={formPayInvoice}
+                onChange={e => handleSelectInvoiceForPayment(e.target.value)}
+                className="w-full bg-[#f7f4ef] border border-[#e8e1d7] rounded-[10px] px-3.5 py-2.5 text-[13px] outline-none cursor-pointer"
+              >
+                <option value="">None / Direct Payment</option>
+                {invoices.map(inv => (
+                  <option key={inv.id} value={inv.num}>
+                    {inv.num} — {inv.client} ({inv.status}, ₹{inv.amount.toLocaleString('en-IN')})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[10.5px] font-bold text-[#7a706a] uppercase tracking-wider block mb-1">
+                  Transaction ID *
+                </label>
+                <input
+                  type="text"
+                  value={formPayTxId}
+                  onChange={e => setFormPayTxId(e.target.value)}
+                  placeholder="TXN-123456"
+                  className="w-full bg-[#f7f4ef] border border-[#e8e1d7] rounded-[10px] px-3.5 py-2.5 text-[13px] outline-none font-mono"
+                />
+              </div>
+              <div>
+                <label className="text-[10.5px] font-bold text-[#7a706a] uppercase tracking-wider block mb-1">
+                  Payment Status
+                </label>
+                <select
+                  value={formPayStatus}
+                  onChange={e => setFormPayStatus(e.target.value as Payment['status'])}
+                  className="w-full bg-[#f7f4ef] border border-[#e8e1d7] rounded-[10px] px-3.5 py-2.5 text-[13px] outline-none cursor-pointer"
+                >
+                  <option value="Completed">Completed</option>
+                  <option value="Processing">Processing</option>
+                  <option value="Failed">Failed</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[10.5px] font-bold text-[#7a706a] uppercase tracking-wider block mb-1">
+                Client Name *
+              </label>
+              <input
+                type="text"
+                value={formPayClient}
+                onChange={e => setFormPayClient(e.target.value)}
+                placeholder="Client Name"
+                className="w-full bg-[#f7f4ef] border border-[#e8e1d7] rounded-[10px] px-3.5 py-2.5 text-[13px] outline-none"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[10.5px] font-bold text-[#7a706a] uppercase tracking-wider block mb-1">
+                  Amount Received (₹) *
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={formPayAmt || ''}
+                  onChange={e => setFormPayAmt(Number(e.target.value))}
+                  placeholder="Amount in ₹"
+                  className="w-full bg-[#f7f4ef] border border-[#e8e1d7] rounded-[10px] px-3.5 py-2.5 text-[13px] outline-none font-semibold text-[#3d5a4c]"
+                />
+              </div>
+              <div>
+                <label className="text-[10.5px] font-bold text-[#7a706a] uppercase tracking-wider block mb-1">
+                  Payment Date
+                </label>
+                <input
+                  type="date"
+                  value={formPayDate}
+                  onChange={e => setFormPayDate(e.target.value)}
+                  className="w-full bg-[#f7f4ef] border border-[#e8e1d7] rounded-[10px] px-3.5 py-2.5 text-[13px] outline-none"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[10.5px] font-bold text-[#7a706a] uppercase tracking-wider block mb-1">
+                Payment Method
+              </label>
+              <select
+                value={formPayMethod}
+                onChange={e => setFormPayMethod(e.target.value)}
+                className="w-full bg-[#f7f4ef] border border-[#e8e1d7] rounded-[10px] px-3.5 py-2.5 text-[13px] outline-none cursor-pointer"
+              >
+                <option value="UPI">UPI</option>
+                <option value="Direct Transfer">Bank Transfer / NEFT / IMPS</option>
+                <option value="Credit Card">Credit / Debit Card</option>
+                <option value="PayPal">PayPal / Stripe</option>
+                <option value="Cash">Cash</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
           </div>
         )}
       </Modal>

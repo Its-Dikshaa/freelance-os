@@ -29,7 +29,7 @@ const pageBtnLabels: Record<PageId, string> = {
   tasks: '+ Add Task',
   clients: '+ Add Client',
   invoices: '+ New Invoice',
-  payments: '',
+  payments: '+ Record Payment',
   settings: ''
 };
 
@@ -37,15 +37,15 @@ export function Topbar({ currentPg, onOpenMobile, searchText, onSearchChange, on
   const btnLabel = pageBtnLabels[currentPg];
 
   return (
-    <header className="bg-[#f7f4ef]/90 backdrop-blur-md border-b border-[#e8e1d7] h-[58px] px-6 flex items-center justify-between sticky top-0 z-[100]">
-      <div className="flex items-center gap-3">
+    <header className="bg-[#f7f4ef]/90 backdrop-blur-md border-b border-[#e8e1d7] h-[58px] px-4 sm:px-6 flex items-center justify-between sticky top-0 z-[100]">
+      <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
         <button
           onClick={onOpenMobile}
-          className="md:hidden bg-transparent border-none text-[#4a4440] text-xl cursor-pointer"
+          className="md:hidden bg-transparent border-none text-[#4a4440] text-xl cursor-pointer shrink-0"
         >
           <Menu className="w-5 h-5" />
         </button>
-        <h1 className="font-serif-playfair text-[18px] font-medium text-[#2c2825] tracking-tight">
+        <h1 className="font-serif-playfair text-[17px] sm:text-[18px] font-medium text-[#2c2825] tracking-tight truncate">
           {pageTitles[currentPg]}
         </h1>
         <div
@@ -60,25 +60,26 @@ export function Topbar({ currentPg, onOpenMobile, searchText, onSearchChange, on
         </div>
       </div>
 
-      <div className="flex items-center gap-2.5">
-        <div className="hidden sm:flex items-center gap-2 bg-white border border-[#e8e1d7] rounded-[10px] px-3 py-1.5 w-[200px] focus-within:border-[#8fac99] focus-within:ring-2 focus-within:ring-[#8fac99]/20 transition-all">
-          <Search className="w-3.5 h-3.5 text-[#b5a898]" />
+      <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 bg-white border border-[#e8e1d7] rounded-[10px] px-2 sm:px-3 py-1.5 w-[115px] sm:w-[200px] focus-within:border-[#8fac99] focus-within:ring-2 focus-within:ring-[#8fac99]/20 transition-all">
+          <Search className="w-3.5 h-3.5 text-[#b5a898] shrink-0" />
           <input
             type="text"
             value={searchText}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search..."
-            className="bg-transparent border-none outline-none text-[12.5px] text-[#4a4440] w-full font-sans-outfit placeholder:text-[#b5a898]"
+            className="bg-transparent border-none outline-none text-[12px] sm:text-[12.5px] text-[#4a4440] w-full min-w-0 font-sans-outfit placeholder:text-[#b5a898]"
           />
         </div>
 
         {btnLabel && (
           <button
             onClick={onQuickAdd}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-[9px] text-[12.5px] font-medium cursor-pointer bg-[#2c2825] text-[#f7f4ef] hover:bg-[#4a4440] transition-all shadow-sm"
+            className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-[9px] text-[12px] sm:text-[12.5px] font-medium cursor-pointer bg-[#2c2825] text-[#f7f4ef] hover:bg-[#4a4440] transition-all shadow-sm shrink-0"
           >
-            <Plus className="w-4 h-4" />
-            <span>{btnLabel.replace('+ ', '')}</span>
+            <Plus className="w-4 h-4 shrink-0" />
+            <span className="hidden sm:inline">{btnLabel.replace('+ ', '')}</span>
+            <span className="sm:hidden">Add</span>
           </button>
         )}
       </div>

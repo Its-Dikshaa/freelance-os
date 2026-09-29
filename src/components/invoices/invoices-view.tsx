@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Invoice, InvoiceStatus, Client, UserSettings } from '@/types';
+import { Invoice, InvoiceItem, InvoiceStatus, Client, UserSettings } from '@/types';
 import { fmF } from '@/lib/storage';
 import { formatDisplayDate, getInvoiceStatus } from '@/lib/date-utils';
 import { API_BASE_URL, getAuthHeaders } from '@/lib/api';
@@ -43,6 +43,14 @@ function InvoiceSheet({
   };
 
   const invoiceActualStatus = getInvoiceStatus(inv.status, inv.due);
+  const curSym = settings?.currency || '₹';
+  const items: InvoiceItem[] = (inv.items && inv.items.length > 0)
+    ? inv.items
+    : [{ desc: inv.desc || 'Services rendered', qty: 1, rate: inv.amount }];
+  const subtotal = items.reduce((acc, it) => acc + (Number(it.qty) || 0) * (Number(it.rate) || 0), 0) || inv.amount;
+  const hasGst = Boolean(settings.gst);
+  const gstAmount = hasGst ? Math.round(subtotal * 0.18) : 0;
+  const totalDue = subtotal + gstAmount;
 
   return (
     <div id={id} className="bg-white text-[#2c2825] p-10 font-sans-outfit">
@@ -100,36 +108,48 @@ function InvoiceSheet({
       {/* Items Table */}
       <table className="w-full border-collapse mb-5">
         <thead>
-          <tr className="bg-[#f7f4ef] text-[10px] uppercase tracking-wider text-[#7a706a] font-bold text-left border-b border-[#e8e1d7]">
-            <th className="p-3">DESCRIPTION</th>
-            <th className="p-3 text-right">AMOUNT</th>
+          <tr className="bg-[#f7f4ef] text-[10px] uppercase tracking-wider text-[#7a706a] font-bold border-b border-[#e8e1d7]">
+            <th className="p-3 text-left">DESCRIPTION / DELIVERABLE</th>
+            <th className="p-3 text-center w-16">QTY</th>
+            <th className="p-3 text-right w-24">RATE</th>
+            <th className="p-3 text-right w-28">AMOUNT</th>
           </tr>
         </thead>
         <tbody>
-          <tr className="border-b border-[#f0ebe3]">
-            <td className="p-3.5 text-[13.5px] font-medium text-[#2c2825]">
-              {inv.desc || 'Services rendered'}
-            </td>
-            <td className="p-3.5 text-[14px] text-right font-bold text-[#2c2825]">{fmF(inv.amount)}</td>
-          </tr>
+          {items.map((it, idx) => (
+            <tr key={idx} className="border-b border-[#f0ebe3]">
+              <td className="p-3.5 text-[13px] font-medium text-[#2c2825]">
+                {it.desc || 'Deliverable'}
+              </td>
+              <td className="p-3.5 text-[13px] text-center text-[#7a706a]">
+                {it.qty || 1}
+              </td>
+              <td className="p-3.5 text-[13px] text-right text-[#7a706a]">
+                {fmF(it.rate || 0, curSym)}
+              </td>
+              <td className="p-3.5 text-[13.5px] text-right font-bold text-[#2c2825]">
+                {fmF((it.qty || 1) * (it.rate || 0), curSym)}
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
 
       {/* Totals */}
       <div className="flex flex-col items-end gap-1.5 py-2 border-t border-[#e8e1d7] mb-5">
-        <div className="flex justify-between w-52 text-[13px] text-[#7a706a]">
+        <div className="flex justify-between w-56 text-[13px] text-[#7a706a]">
           <span>Subtotal</span>
-          <span className="font-medium text-[#2c2825]">{fmF(inv.amount)}</span>
+          <span className="font-medium text-[#2c2825]">{fmF(subtotal, curSym)}</span>
         </div>
-        {settings.gst ? (
-          <div className="flex justify-between w-52 text-[13px] text-[#7a706a]">
+        {hasGst ? (
+          <div className="flex justify-between w-56 text-[13px] text-[#7a706a]">
             <span>GST (18%)</span>
-            <span className="font-medium text-[#2c2825]">{fmF(Math.round(inv.amount * 0.18))}</span>
+            <span className="font-medium text-[#2c2825]">{fmF(gstAmount, curSym)}</span>
           </div>
         ) : null}
-        <div className="flex justify-between w-60 text-[18px] font-semibold text-[#2c2825] font-serif-playfair pt-2 border-t border-[#2c2825] mt-1">
+        <div className="flex justify-between w-64 text-[18px] font-semibold text-[#2c2825] font-serif-playfair pt-2 border-t border-[#2c2825] mt-1">
           <span>Total Due</span>
-          <span>{fmF(settings.gst ? Math.round(inv.amount * 1.18) : inv.amount)}</span>
+          <span>{fmF(totalDue, curSym)}</span>
         </div>
       </div>
 
@@ -166,6 +186,7 @@ export function InvoicesView({
 }: InvoicesViewProps) {
   const { toast } = useToast();
   const [filterStatus, setFilterStatus] = useState<'all' | InvoiceStatus>('all');
+  const curSym = settings?.currency || '₹';
 
   // Preview & Email states
   const [previewInvoice, setPreviewInvoice] = useState<Invoice | null>(null);
@@ -215,21 +236,32 @@ export function InvoicesView({
     const dueDateStr = inv.due || '2026-09-30';
     const issueDateStr = inv.date || new Date().toISOString().slice(0, 10);
 
+    const items = (inv.items && inv.items.length > 0)
+      ? inv.items
+      : [{ desc: inv.desc || 'Services rendered', qty: 1, rate: inv.amount }];
+    const baseAmt = items.reduce((acc, it) => acc + (Number(it.qty) || 0) * (Number(it.rate) || 0), 0) || inv.amount;
     const hasGst = Boolean(settings.gst);
     const gstRate = 0.18;
-    const baseAmt = inv.amount;
     const gstAmt = hasGst ? Math.round(baseAmt * gstRate) : 0;
     const totalAmt = baseAmt + gstAmt;
 
     let detailsBlock = `──────────────────────────────\n`;
     detailsBlock += `Invoice No.   :  ${inv.num}\n`;
-    detailsBlock += `Description   :  ${inv.desc || 'Services rendered'}\n`;
-    if (hasGst) {
-      detailsBlock += `Amount        :  ${fmF(baseAmt)}\n`;
-      detailsBlock += `GST (18%)     :  ${fmF(gstAmt)}\n`;
-      detailsBlock += `Total Due     :  ${fmF(totalAmt)}\n`;
+    if (items.length > 1) {
+      detailsBlock += `Deliverables  :\n`;
+      items.forEach(it => {
+        detailsBlock += `  • ${it.desc || 'Deliverable'} (Qty: ${it.qty || 1} @ ${fmF(it.rate || 0, curSym)}) = ${fmF((it.qty || 1) * (it.rate || 0), curSym)}\n`;
+      });
+      detailsBlock += `Subtotal      :  ${fmF(baseAmt, curSym)}\n`;
     } else {
-      detailsBlock += `Amount        :  ${fmF(baseAmt)}\n`;
+      detailsBlock += `Description   :  ${inv.desc || items[0]?.desc || 'Services rendered'}\n`;
+      detailsBlock += `Subtotal      :  ${fmF(baseAmt, curSym)}\n`;
+    }
+    if (hasGst) {
+      detailsBlock += `GST (18%)     :  ${fmF(gstAmt, curSym)}\n`;
+      detailsBlock += `Total Due     :  ${fmF(totalAmt, curSym)}\n`;
+    } else {
+      detailsBlock += `Total Due     :  ${fmF(baseAmt, curSym)}\n`;
     }
     detailsBlock += `Invoice Date  :  ${issueDateStr}\n`;
     detailsBlock += `Due Date      :  ${dueDateStr}\n`;
@@ -438,19 +470,29 @@ export function InvoicesView({
                 <div className="pl-1">
                   <div className="flex justify-between items-start">
                     <span className="text-[10.5px] font-bold text-[#b5a898] uppercase tracking-wider">{inv.num}</span>
-                    <div className="font-serif-playfair text-[20px] font-medium text-[#2c2825]">{fmF(inv.amount)}</div>
+                    <div className="font-serif-playfair text-[20px] font-medium text-[#2c2825]">{fmF(inv.amount, curSym)}</div>
                   </div>
 
                   <div className="text-[13.5px] font-medium text-[#2c2825] mt-1">{inv.client}</div>
                   <div className="text-[11px] text-[#b5a898] mt-0.5">
                     Issued {formatDisplayDate(inv.date, false)} · Due {formatDisplayDate(inv.due, false)}
                   </div>
+                  {inv.desc && (
+                    <div className="text-[11.5px] text-[#7a706a] mt-1 line-clamp-1 italic">
+                      {inv.desc}
+                    </div>
+                  )}
 
-                  <div className="mt-2.5">
+                  <div className="mt-2.5 flex items-center justify-between gap-1 flex-wrap">
                     <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 ${statusBadges[actualStatus]}`}>
                       {actualStatus === 'Overdue' && <AlertTriangle className="w-3 h-3" />}
                       {actualStatus}
                     </span>
+                    {inv.items && inv.items.length > 1 && (
+                      <span className="text-[10px] font-medium text-[#3d5a4c] bg-[#3d5a4c]/10 px-2 py-0.5 rounded-full border border-[#3d5a4c]/20">
+                        {inv.items.length} deliverables
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -588,7 +630,7 @@ export function InvoicesView({
                   <Download className="w-3.5 h-3.5" /> PDF
                 </button>
                 <div className="font-serif-playfair text-[16px] font-medium text-[#2c2825]">
-                  {fmF(emailInvoice.amount)}
+                  {fmF(emailInvoice.amount, curSym)}
                 </div>
               </div>
             </div>

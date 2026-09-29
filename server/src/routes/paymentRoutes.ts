@@ -41,4 +41,18 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
   }
 });
 
+// DELETE /api/payments/:id - Delete current user's payment ONLY
+router.delete('/:id', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const deleted = await Payment.findOneAndDelete({ id: req.params.id, userId: req.userId });
+    if (!deleted) {
+      return res.status(404).json({ error: 'Payment not found or access denied' });
+    }
+    return res.json({ message: 'Payment deleted successfully' });
+  } catch (err) {
+    console.error('[Delete Payment Error]', err);
+    return res.status(500).json({ error: 'Failed to delete payment' });
+  }
+});
+
 export default router;

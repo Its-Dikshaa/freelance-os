@@ -121,6 +121,17 @@ export async function apiGetMe(): Promise<UserSettings | null> {
   }
 }
 
+export async function apiChangePassword(currentPassword: string, newPassword: string): Promise<{ message: string }> {
+  const res = await fetch(`${API_BASE_URL}/auth/change-password`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ currentPassword, newPassword })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to change password');
+  return data;
+}
+
 async function fetchWithFallback<T>(url: string, fallbackData: T): Promise<T> {
   const token = getAuthToken();
   if (!token) return fallbackData;
@@ -322,4 +333,15 @@ export async function apiCreatePayment(payment: Partial<Payment>): Promise<Payme
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Failed to record payment');
   return data;
+}
+
+export async function apiDeletePayment(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/payments/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders()
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to delete payment');
+  }
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Task, TaskStatus } from '@/types';
+import { Task, TaskStatus, TaskPriority } from '@/types';
 import { formatDisplayDate, isOverdue } from '@/lib/date-utils';
 import { Edit2, X, AlertTriangle, Calendar, Clock } from 'lucide-react';
 
@@ -20,10 +20,17 @@ const columns: { id: TaskStatus; label: string }[] = [
   { id: 'Done', label: 'Done' }
 ];
 
+const priorityStyles: Record<TaskPriority, string> = {
+  High: 'bg-[#c4623a]/12 text-[#c4623a] border-[#c4623a]/25',
+  Medium: 'bg-[#c9963e]/12 text-[#c9963e] border-[#c9963e]/25',
+  Low: 'bg-[#4a7fa5]/12 text-[#4a7fa5] border-[#4a7fa5]/25'
+};
+
 export function KanbanView({ tasks, onUpdateStatus, onOpenModal, onConfirmDelete, searchText }: KanbanViewProps) {
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<TaskStatus | null>(null);
   const [showOverdueOnly, setShowOverdueOnly] = useState(false);
+  const [filterPriority, setFilterPriority] = useState<'all' | TaskPriority>('all');
 
   let list = [...tasks];
   if (searchText) {
@@ -35,6 +42,10 @@ export function KanbanView({ tasks, onUpdateStatus, onOpenModal, onConfirmDelete
 
   if (showOverdueOnly) {
     list = list.filter(t => isOverdue(t.due) && t.status !== 'Done');
+  }
+
+  if (filterPriority !== 'all') {
+    list = list.filter(t => (t.priority || 'Medium') === filterPriority);
   }
 
   const totalOverdue = tasks.filter(t => isOverdue(t.due) && t.status !== 'Done').length;
@@ -74,7 +85,18 @@ export function KanbanView({ tasks, onUpdateStatus, onOpenModal, onConfirmDelete
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <select
+            value={filterPriority}
+            onChange={e => setFilterPriority(e.target.value as 'all' | TaskPriority)}
+            className="px-2.5 py-1 rounded-full text-[11.5px] font-medium bg-[#f7f4ef] border border-[#e8e1d7] text-[#7a706a] outline-none cursor-pointer"
+          >
+            <option value="all">All Priorities</option>
+            <option value="High">🔴 High Priority</option>
+            <option value="Medium">🟡 Medium</option>
+            <option value="Low">🔵 Low</option>
+          </select>
+
           <button
             onClick={() => setShowOverdueOnly(!showOverdueOnly)}
             className={`px-3 py-1 rounded-full text-[11.5px] font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
@@ -125,6 +147,7 @@ export function KanbanView({ tasks, onUpdateStatus, onOpenModal, onConfirmDelete
                 ) : (
                   colTasks.map(t => {
                     const overdue = isOverdue(t.due) && t.status !== 'Done';
+                    const priority = t.priority || 'Medium';
                     return (
                       <div
                         key={t.id}
@@ -136,12 +159,17 @@ export function KanbanView({ tasks, onUpdateStatus, onOpenModal, onConfirmDelete
                             : 'border-[#e8e1d7] hover:border-[#b5a898]'
                         }`}
                       >
-                        <div className="text-[12.5px] font-medium text-[#2c2825] mb-2.5 leading-snug">{t.title}</div>
+                        <div className="text-[12.5px] font-medium text-[#2c2825] mb-2 leading-snug">{t.title}</div>
 
                         <div className="flex flex-wrap justify-between items-center gap-1.5 text-[10px]">
-                          <span className="text-[#7a706a] bg-[#f0ebe3] px-2 py-0.5 rounded-full font-medium">
-                            {t.project || 'General'}
-                          </span>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[#7a706a] bg-[#f0ebe3] px-2 py-0.5 rounded-full font-medium">
+                              {t.project || 'General'}
+                            </span>
+                            <span className={`text-[9.5px] font-semibold px-2 py-0.5 rounded-full border ${priorityStyles[priority]}`}>
+                              {priority}
+                            </span>
+                          </div>
 
                           {overdue ? (
                             <span className="bg-[#c4623a]/15 text-[#c4623a] border border-[#c4623a]/30 px-2 py-0.5 rounded-full font-semibold flex items-center gap-1" title="Task is past due date!">

@@ -50,15 +50,21 @@ export function ini(n: string): string {
     .slice(0, 2) || '?';
 }
 
-export function fm(n: number): string {
+export function fm(n: number, sym = '₹'): string {
   n = Number(n || 0);
-  if (n >= 100000) return '₹' + (n / 100000).toFixed(1) + 'L';
-  if (n >= 1000) return '₹' + (n / 1000).toFixed(0) + 'K';
-  return '₹' + n;
+  if (sym === '₹') {
+    if (n >= 100000) return sym + (n / 100000).toFixed(1) + 'L';
+    if (n >= 1000) return sym + (n / 1000).toFixed(0) + 'K';
+    return sym + n;
+  }
+  if (n >= 1000000) return sym + (n / 1000000).toFixed(1) + 'M';
+  if (n >= 1000) return sym + (n / 1000).toFixed(1) + 'K';
+  return sym + n;
 }
 
-export function fmF(n: number): string {
-  return '₹' + Number(n || 0).toLocaleString('en-IN');
+export function fmF(n: number, sym = '₹'): string {
+  const locale = sym === '₹' ? 'en-IN' : 'en-US';
+  return sym + Number(n || 0).toLocaleString(locale);
 }
 
 export const defaultSettings: UserSettings = {
@@ -70,7 +76,8 @@ export const defaultSettings: UserSettings = {
   biz: 'Diksha Design Studio',
   gst: '',
   bank: 'diksha@upi',
-  prefix: 'INV'
+  prefix: 'INV',
+  currency: '₹'
 };
 
 export const defaultActivity: ActivityItem[] = [];
