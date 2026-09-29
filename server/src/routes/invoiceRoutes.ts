@@ -121,11 +121,8 @@ router.post('/send-email', async (req: AuthenticatedRequest, res: Response) => {
     }
   }
 
-  return res.json({
-    status: 'success',
-    message: `Invoice PDF email queued & processed via Express API for ${to}`,
-    pdfAttached: true,
-    timestamp: new Date().toISOString()
+  return res.status(503).json({
+    error: 'SMTP credentials (SMTP_USER and SMTP_PASS) are not configured on the server. Please use your local email app to send the invoice.'
   });
 });
 

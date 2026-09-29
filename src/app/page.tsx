@@ -62,7 +62,7 @@ function MainAppContent() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [apiConnected, setApiConnected] = useState(false);
-  const [settings, setSettings] = useState<UserSettings>(defaultSettings);
+  const [settings, setSettings] = useState<UserSettings>(() => ld(K.s, defaultSettings));
   const [actLog, setActLog] = useState<ActivityItem[]>(() => ld(K.a, defaultActivity));
   const [goalTarget, setGoalTarget] = useState<number>(() => ld(K.g, 500000));
 
@@ -129,6 +129,7 @@ function MainAppContent() {
       }
 
       setSettings(userMe);
+      sv(K.s, userMe);
       setIsOnboarded(true);
 
       const [apiP, apiC, apiI, apiT, apiPay] = await Promise.all([
@@ -228,6 +229,10 @@ function MainAppContent() {
         toast('Project name is required', 'error');
         return;
       }
+      if (!formPClient.trim()) {
+        toast('Please create or select a client first', 'error');
+        return;
+      }
       if (editId) {
         const itemToUpdate = { name: formPName, client: formPClient, status: formPStatus, progress: formPProg, budget: formPBudget, deadline: formPDeadline, desc: formPDesc };
         const updated = projects.map(p => p.id === editId ? { ...p, ...itemToUpdate } : p);
@@ -268,6 +273,10 @@ function MainAppContent() {
     } else if (activeModal === 'invoice') {
       if (!formINum.trim()) {
         toast('Invoice number is required', 'error');
+        return;
+      }
+      if (!formIClient.trim()) {
+        toast('Please create or select a client first', 'error');
         return;
       }
       if (editId) {
@@ -375,10 +384,18 @@ function MainAppContent() {
     toast(`Task moved to ${newStatus}`);
   };
 
-  const handleSaveSettings = (newSettings: UserSettings) => {
+  const handleSaveSettings = async (newSettings: UserSettings) => {
     setSettings(newSettings);
     sv(K.s, newSettings);
-    apiUpdateUser(newSettings).catch(err => toast(err.message || 'Failed to sync profile settings', 'error'));
+    try {
+      const updated = await apiUpdateUser(newSettings);
+      if (updated) {
+        setSettings(updated);
+        sv(K.s, updated);
+      }
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Failed to sync profile settings', 'error');
+    }
   };
 
   const handleExportJSON = () => {
@@ -407,7 +424,14 @@ function MainAppContent() {
     }
   };
 
-  const handleOnboardingComplete = async () => {
+  const handleOnboardingComplete = async (partialSettings?: Partial<UserSettings>) => {
+    if (partialSettings) {
+      setSettings(prev => {
+        const merged = { ...prev, ...partialSettings };
+        sv(K.s, merged);
+        return merged;
+      });
+    }
     setIsOnboarded(true);
     await loadUserData();
   };
@@ -510,6 +534,8 @@ function MainAppContent() {
           {currentPg === 'clients' && (
             <ClientsView
               clients={clients}
+              projects={projects}
+              invoices={invoices}
               onOpenModal={handleOpenModal}
               onConfirmDelete={(type, id) => setConfirmDeleteObj({ type, id })}
               searchText={searchText}
@@ -533,7 +559,8 @@ function MainAppContent() {
               payments={payments}
               invoices={invoices}
               searchText={searchText}
-              onViewInvoice={() => {
+              onViewInvoice={(invoiceNum: string) => {
+                setSearchText(invoiceNum);
                 setCurrentPg('invoices');
               }}
             />
@@ -586,7 +613,11 @@ function MainAppContent() {
                 onChange={e => setFormPClient(e.target.value)}
                 className="w-full bg-[#f7f4ef] border border-[#e8e1d7] rounded-[10px] px-3.5 py-2.5 text-[13px] outline-none cursor-pointer"
               >
-                {clients.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                {clients.length === 0 ? (
+                  <option value="">No clients found — add a client first</option>
+                ) : (
+                  clients.map(c => <option key={c.id} value={c.name}>{c.name}</option>)
+                )}
               </select>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -732,7 +763,11 @@ function MainAppContent() {
                 onChange={e => setFormIClient(e.target.value)}
                 className="w-full bg-[#f7f4ef] border border-[#e8e1d7] rounded-[10px] px-3.5 py-2.5 text-[13px] outline-none cursor-pointer"
               >
-                {clients.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                {clients.length === 0 ? (
+                  <option value="">No clients found — add a client first</option>
+                ) : (
+                  clients.map(c => <option key={c.id} value={c.name}>{c.name}</option>)
+                )}
               </select>
             </div>
             <div>
@@ -796,6 +831,7 @@ function MainAppContent() {
                 onChange={e => setFormTProject(e.target.value)}
                 className="w-full bg-[#f7f4ef] border border-[#e8e1d7] rounded-[10px] px-3.5 py-2.5 text-[13px] outline-none cursor-pointer focus:border-[#2c2825]"
               >
+                <option value="General">General (No Project)</option>
                 {projects.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
               </select>
             </div>

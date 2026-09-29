@@ -2,6 +2,11 @@
 // id or reassign its owner. Renaming `id` would also collide with the
 // { userId, id } unique index on every collection.
 export function sanitizeUpdate(body: Record<string, unknown>): Record<string, unknown> {
-  const { id, _id, userId, createdAt, updatedAt, ...rest } = body;
+  const rest = { ...body };
+  delete rest.id;
+  delete rest._id;
+  delete rest.userId;
+  delete rest.createdAt;
+  delete rest.updatedAt;
   return rest;
 }

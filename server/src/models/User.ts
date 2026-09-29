@@ -19,7 +19,7 @@ export interface IUser extends Document {
 // the frontend reads these responses as-is, with no translation layer.
 const UserSchema: Schema = new Schema({
   name: { type: String, required: true, default: 'Diksha Jangra' },
-  profession: { type: String, required: true, default: 'UI/UX Designer' },
+  profession: { type: String, default: 'UI/UX Designer' },
   email: { type: String, required: true, unique: true, lowercase: true, index: true },
   password: { type: String, required: true },
   biz: { type: String, default: 'Studio Diksha' },

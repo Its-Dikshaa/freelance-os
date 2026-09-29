@@ -18,6 +18,143 @@ interface InvoicesViewProps {
   searchText: string;
 }
 
+function InvoiceSheet({
+  inv,
+  settings,
+  clients,
+  id
+}: {
+  inv: Invoice;
+  settings: UserSettings;
+  clients: Client[];
+  id: string;
+}) {
+  const cl = clients.find(c =>
+    c.name.toLowerCase().trim() === inv.client.toLowerCase().trim()
+  ) || clients.find(c =>
+    c.name.toLowerCase().includes(inv.client.toLowerCase()) ||
+    inv.client.toLowerCase().includes(c.name.toLowerCase())
+  );
+
+  const statusBadges: Record<InvoiceStatus, string> = {
+    Paid: 'bg-[#3d5a4c]/10 text-[#3d5a4c]',
+    Unpaid: 'bg-[#c9963e]/12 text-[#c9963e]',
+    Overdue: 'bg-[#c4623a]/10 text-[#c4623a]'
+  };
+
+  const invoiceActualStatus = getInvoiceStatus(inv.status, inv.due);
+
+  return (
+    <div id={id} className="bg-white text-[#2c2825] p-10 font-sans-outfit">
+      {/* Header */}
+      <div className="flex justify-between items-start mb-6">
+        <div>
+          <div className="font-serif-playfair text-[24px] font-medium text-[#2c2825]">
+            {settings.biz || 'Diksha Design Studio'}
+          </div>
+          <div className="text-[12.5px] text-[#7a706a] mt-1 font-medium">
+            {settings.name || 'Diksha Jangra'} · {settings.profession || 'UI/UX Designer'}
+          </div>
+          <div className="text-[11.5px] text-[#b5a898] mt-0.5">
+            {settings.email || 'diksha@example.com'} · {settings.location || 'Abohar, Punjab, India'}
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="text-[10px] tracking-[2.5px] uppercase font-bold text-[#b5a898] mb-1">INVOICE</div>
+          <div className="font-serif-playfair text-[24px] font-bold text-[#2c2825]">{inv.num}</div>
+          <div className="text-[12px] text-[#7a706a] mt-1">Issued: {inv.date}</div>
+          <div className="text-[12px] text-[#7a706a]">Due: {inv.due}</div>
+          <div className="mt-2 inline-block">
+            <span className={`text-[10.5px] font-semibold px-3 py-1 rounded-full ${statusBadges[invoiceActualStatus]}`}>
+              {invoiceActualStatus}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="h-px bg-[#e8e1d7] my-5" />
+
+      {/* FROM & BILL TO Grid */}
+      <div className="grid grid-cols-2 gap-8 mb-6">
+        <div>
+          <div className="text-[9.5px] tracking-[2px] uppercase text-[#b5a898] font-bold mb-1.5">FROM</div>
+          <div className="text-[14px] font-semibold text-[#2c2825]">{settings.name || 'Diksha Jangra'}</div>
+          <div className="text-[12px] text-[#7a706a]">{settings.biz || 'Diksha Design Studio'}</div>
+          {settings.gst && <div className="text-[11.5px] text-[#b5a898] mt-0.5">GSTIN: {settings.gst}</div>}
+        </div>
+
+        <div>
+          <div className="text-[9.5px] tracking-[2px] uppercase text-[#b5a898] font-bold mb-1.5">BILL TO</div>
+          <div className="text-[14px] font-semibold text-[#2c2825]">{inv.client}</div>
+          {cl?.industry && (
+            <div className="text-[12px] text-[#7a706a]">
+              {cl.industry}
+            </div>
+          )}
+          <div className="text-[12px] text-[#7a706a]">
+            {cl?.email || inv.clientEmail || 'client@company.com'}
+          </div>
+        </div>
+      </div>
+
+      {/* Items Table */}
+      <table className="w-full border-collapse mb-5">
+        <thead>
+          <tr className="bg-[#f7f4ef] text-[10px] uppercase tracking-wider text-[#7a706a] font-bold text-left border-b border-[#e8e1d7]">
+            <th className="p-3">DESCRIPTION</th>
+            <th className="p-3 text-right">AMOUNT</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr className="border-b border-[#f0ebe3]">
+            <td className="p-3.5 text-[13.5px] font-medium text-[#2c2825]">
+              {inv.desc || 'Services rendered'}
+            </td>
+            <td className="p-3.5 text-[14px] text-right font-bold text-[#2c2825]">{fmF(inv.amount)}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      {/* Totals */}
+      <div className="flex flex-col items-end gap-1.5 py-2 border-t border-[#e8e1d7] mb-5">
+        <div className="flex justify-between w-52 text-[13px] text-[#7a706a]">
+          <span>Subtotal</span>
+          <span className="font-medium text-[#2c2825]">{fmF(inv.amount)}</span>
+        </div>
+        {settings.gst ? (
+          <div className="flex justify-between w-52 text-[13px] text-[#7a706a]">
+            <span>GST (18%)</span>
+            <span className="font-medium text-[#2c2825]">{fmF(Math.round(inv.amount * 0.18))}</span>
+          </div>
+        ) : null}
+        <div className="flex justify-between w-60 text-[18px] font-semibold text-[#2c2825] font-serif-playfair pt-2 border-t border-[#2c2825] mt-1">
+          <span>Total Due</span>
+          <span>{fmF(settings.gst ? Math.round(inv.amount * 1.18) : inv.amount)}</span>
+        </div>
+      </div>
+
+      {/* Payment Banner Box */}
+      <div className="bg-[#f7f4ef] rounded-[10px] p-3.5 text-[12px] text-[#4a4440] border-l-4 border-[#8fac99] mb-3.5 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-base">💳</span>
+          <span><strong>Payment:</strong> {settings.bank || 'diksha@upi'}</span>
+        </div>
+        {settings.gst && <span className="text-[11px] text-[#7a706a]">GSTIN: {settings.gst}</span>}
+      </div>
+
+      {/* Notes & Payment Terms Box */}
+      <div className="bg-[#f7f4ef] rounded-[10px] p-3.5 text-[12px] text-[#7a706a] border-l-3 border-[#c9963e] mb-5">
+        <strong>Notes / Payment Terms:</strong> Please remit payment within 14 days of issue date. Include invoice number {inv.num} in reference.
+      </div>
+
+      {/* Footer Note */}
+      <div className="text-center text-[11.5px] text-[#7a706a] pt-2 border-t border-[#f0ebe3]">
+        Thank you for your business · {settings.biz || 'Diksha Design Studio'}
+      </div>
+    </div>
+  );
+}
+
 export function InvoicesView({
   invoices,
   clients,
@@ -106,9 +243,9 @@ export function InvoicesView({
   const generatePDFForInvoice = async (inv: Invoice) => {
     try {
       const html2pdf = (await import('html2pdf.js')).default;
-      const element = document.getElementById('printable-invoice-sheet');
+      const element = document.getElementById('printable-invoice-sheet') || document.getElementById('printable-invoice-sheet-email');
       if (!element) {
-        toast('Invoice sheet preparing, please try again');
+        toast('Invoice sheet preparing, please try again', 'error');
         return;
       }
 
@@ -161,7 +298,7 @@ export function InvoicesView({
   const getInvoicePDFBase64 = async (inv: Invoice): Promise<string | null> => {
     try {
       const html2pdf = (await import('html2pdf.js')).default;
-      const element = document.getElementById('printable-invoice-sheet');
+      const element = document.getElementById('printable-invoice-sheet') || document.getElementById('printable-invoice-sheet-email');
       if (!element) return null;
 
       const container = document.createElement('div');
@@ -221,43 +358,37 @@ export function InvoicesView({
 
   const handleDownloadEmailPDF = async () => {
     if (!emailInvoice) return;
-    setPreviewInvoice(emailInvoice);
-    setTimeout(async () => {
-      await generatePDFForInvoice(emailInvoice);
-    }, 150);
+    await generatePDFForInvoice(emailInvoice);
   };
 
   const handleDirectSendExpress = async () => {
     if (!emailInvoice) return;
     toast('Generating PDF attachment...');
-    setPreviewInvoice(emailInvoice);
 
-    setTimeout(async () => {
+    try {
       const pdfBase64 = await getInvoicePDFBase64(emailInvoice);
-      try {
-        const res = await fetch(`${API_BASE_URL}/invoices/send-email`, {
-          method: 'POST',
-          headers: getAuthHeaders(),
-          body: JSON.stringify({
-            to: emailTo,
-            subject: emailSubj,
-            body: emailBody,
-            invoiceNum: emailInvoice.num,
-            pdfBase64: pdfBase64
-          })
-        });
-        const data = await res.json();
-        if (res.ok) {
-          toast(data.message || `Invoice email sent to ${emailTo}!`);
-          setEmailInvoice(null);
-        } else {
-          toast(data.error || 'Opened mail client');
-          handleSendEmail();
-        }
-      } catch {
+      const res = await fetch(`${API_BASE_URL}/invoices/send-email`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          to: emailTo,
+          subject: emailSubj,
+          body: emailBody,
+          invoiceNum: emailInvoice.num,
+          pdfBase64: pdfBase64
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast(data.message || `Invoice email sent to ${emailTo}!`);
+        setEmailInvoice(null);
+      } else {
+        toast(data.error || 'SMTP not configured, opened local mail client', 'error');
         handleSendEmail();
       }
-    }, 200);
+    } catch {
+      handleSendEmail();
+    }
   };
 
   const handleCopyEmail = () => {
@@ -374,113 +505,7 @@ export function InvoicesView({
         >
           <div className="flex flex-col items-center w-full max-w-[640px] gap-3.5 max-h-[95vh] animate-fade-up">
             <div className="overflow-y-auto rounded-[14px] shadow-2xl w-full max-h-[80vh]">
-              <div id="printable-invoice-sheet" className="bg-white text-[#2c2825] p-10 font-sans-outfit">
-                {/* Header */}
-                <div className="flex justify-between items-start mb-6">
-                  <div>
-                    <div className="font-serif-playfair text-[24px] font-medium text-[#2c2825]">
-                      {settings.biz || 'Diksha Design Studio'}
-                    </div>
-                    <div className="text-[12.5px] text-[#7a706a] mt-1 font-medium">
-                      {settings.name || 'Diksha Jangra'} · {settings.profession || 'UI/UX Designer'}
-                    </div>
-                    <div className="text-[11.5px] text-[#b5a898] mt-0.5">
-                      {settings.email || 'diksha@example.com'} · {settings.location || 'Abohar, Punjab, India'}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-[10px] tracking-[2.5px] uppercase font-bold text-[#b5a898] mb-1">INVOICE</div>
-                    <div className="font-serif-playfair text-[24px] font-bold text-[#2c2825]">{previewInvoice.num}</div>
-                    <div className="text-[12px] text-[#7a706a] mt-1">Issued: {previewInvoice.date}</div>
-                    <div className="text-[12px] text-[#7a706a]">Due: {previewInvoice.due}</div>
-                    <div className="mt-2 inline-block">
-                      <span className={`text-[10.5px] font-semibold px-3 py-1 rounded-full ${statusBadges[getInvoiceStatus(previewInvoice.status, previewInvoice.due)]}`}>
-                        {getInvoiceStatus(previewInvoice.status, previewInvoice.due)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="h-px bg-[#e8e1d7] my-5" />
-
-                {/* FROM & BILL TO Grid */}
-                <div className="grid grid-cols-2 gap-8 mb-6">
-                  <div>
-                    <div className="text-[9.5px] tracking-[2px] uppercase text-[#b5a898] font-bold mb-1.5">FROM</div>
-                    <div className="text-[14px] font-semibold text-[#2c2825]">{settings.name || 'Diksha Jangra'}</div>
-                    <div className="text-[12px] text-[#7a706a]">{settings.biz || 'Diksha Design Studio'}</div>
-                    {settings.gst && <div className="text-[11.5px] text-[#b5a898] mt-0.5">GSTIN: {settings.gst}</div>}
-                  </div>
-
-                  <div>
-                    <div className="text-[9.5px] tracking-[2px] uppercase text-[#b5a898] font-bold mb-1.5">BILL TO</div>
-                    <div className="text-[14px] font-semibold text-[#2c2825]">{previewInvoice.client}</div>
-                    {clients.find(c => c.name === previewInvoice.client)?.industry && (
-                      <div className="text-[12px] text-[#7a706a]">
-                        {clients.find(c => c.name === previewInvoice.client)?.industry}
-                      </div>
-                    )}
-                    <div className="text-[12px] text-[#7a706a]">
-                      {clients.find(c => c.name === previewInvoice.client)?.email || 'ux@healthfirst.in'}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Items Table */}
-                <table className="w-full border-collapse mb-5">
-                  <thead>
-                    <tr className="bg-[#f7f4ef] text-[10px] uppercase tracking-wider text-[#7a706a] font-bold text-left border-b border-[#e8e1d7]">
-                      <th className="p-3">DESCRIPTION</th>
-                      <th className="p-3 text-right">AMOUNT</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr className="border-b border-[#f0ebe3]">
-                      <td className="p-3.5 text-[13.5px] font-medium text-[#2c2825]">
-                        {previewInvoice.desc || 'Ease Well - Discovery Phase'}
-                      </td>
-                      <td className="p-3.5 text-[14px] text-right font-bold text-[#2c2825]">{fmF(previewInvoice.amount)}</td>
-                    </tr>
-                  </tbody>
-                </table>
-
-                {/* Totals */}
-                <div className="flex flex-col items-end gap-1.5 py-2 border-t border-[#e8e1d7] mb-5">
-                  <div className="flex justify-between w-52 text-[13px] text-[#7a706a]">
-                    <span>Subtotal</span>
-                    <span className="font-medium text-[#2c2825]">{fmF(previewInvoice.amount)}</span>
-                  </div>
-                  {settings.gst ? (
-                    <div className="flex justify-between w-52 text-[13px] text-[#7a706a]">
-                      <span>GST (18%)</span>
-                      <span className="font-medium text-[#2c2825]">{fmF(Math.round(previewInvoice.amount * 0.18))}</span>
-                    </div>
-                  ) : null}
-                  <div className="flex justify-between w-60 text-[18px] font-semibold text-[#2c2825] font-serif-playfair pt-2 border-t border-[#2c2825] mt-1">
-                    <span>Total Due</span>
-                    <span>{fmF(settings.gst ? Math.round(previewInvoice.amount * 1.18) : previewInvoice.amount)}</span>
-                  </div>
-                </div>
-
-                {/* Payment Banner Box */}
-                <div className="bg-[#f7f4ef] rounded-[10px] p-3.5 text-[12px] text-[#4a4440] border-l-4 border-[#8fac99] mb-3.5 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-base">💳</span>
-                    <span><strong>Payment:</strong> {settings.bank || 'diksha@upi'}</span>
-                  </div>
-                  {settings.gst && <span className="text-[11px] text-[#7a706a]">GSTIN: {settings.gst}</span>}
-                </div>
-
-                {/* Notes & Payment Terms Box */}
-                <div className="bg-[#f7f4ef] rounded-[10px] p-3.5 text-[12px] text-[#7a706a] border-l-3 border-[#c9963e] mb-5">
-                  <strong>Notes / Payment Terms:</strong> Please remit payment within 14 days of issue date. Include invoice number {previewInvoice.num} in reference.
-                </div>
-
-                {/* Footer Note */}
-                <div className="text-center text-[11.5px] text-[#7a706a] pt-2 border-t border-[#f0ebe3]">
-                  Thank you for your business · {settings.biz || 'Diksha Design Studio'}
-                </div>
-              </div>
+              <InvoiceSheet inv={previewInvoice} settings={settings} clients={clients} id="printable-invoice-sheet" />
             </div>
 
             <div className="flex gap-2 flex-wrap sm:flex-nowrap">
@@ -518,6 +543,13 @@ export function InvoicesView({
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Offscreen Printable Invoice Sheet for Email PDF generation */}
+      {emailInvoice && !previewInvoice && (
+        <div style={{ position: 'fixed', left: '-9999px', top: '0', width: '800px', pointerEvents: 'none', opacity: 0 }}>
+          <InvoiceSheet inv={emailInvoice} settings={settings} clients={clients} id="printable-invoice-sheet-email" />
         </div>
       )}
 

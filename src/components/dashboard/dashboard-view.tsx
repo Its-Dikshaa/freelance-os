@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Project, Client, Invoice, Task, UserSettings, ActivityItem } from '@/types';
 import { fm, fmF } from '@/lib/storage';
-import { formatDisplayDate, isOverdue, getInvoiceStatus } from '@/lib/date-utils';
+import { formatDisplayDate, isOverdue, getInvoiceStatus, toIsoDate } from '@/lib/date-utils';
 import { ArrowUpRight, TrendingUp, TrendingDown, CheckCircle, FileText, UserPlus, FolderPlus, AlertTriangle } from 'lucide-react';
 import { PageId } from '../layout/sidebar';
 
@@ -69,8 +69,11 @@ export function DashboardView({
   const monthlyRevenue = monthBuckets.map(bucket =>
     paidInvoices
       .filter(i => {
-        const parsed = new Date(i.date);
-        return !isNaN(parsed.getTime()) && parsed.getFullYear() === bucket.year && parsed.getMonth() === bucket.month;
+        const iso = toIsoDate(i.date);
+        const parts = iso.split('-').map(Number);
+        if (parts.length !== 3) return false;
+        const [y, m] = parts;
+        return y === bucket.year && (m - 1) === bucket.month;
       })
       .reduce((sum, i) => sum + Number(i.amount), 0)
   );

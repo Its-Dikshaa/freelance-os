@@ -25,7 +25,46 @@ router.put('/', async (req: AuthenticatedRequest, res: Response) => {
   try {
     // `password` must only ever be written as a bcrypt hash by the auth routes;
     // letting it through here would overwrite the hash with a raw string.
-    const { password, _id, createdAt, updatedAt, ...updates } = req.body;
+    const updates = { ...req.body };
+    delete updates.password;
+    delete updates._id;
+    delete updates.id;
+    delete updates.userId;
+    delete updates.__v;
+    delete updates.createdAt;
+    delete updates.updatedAt;
+
+    if (updates.hourlyRate !== undefined && updates.rate === undefined) {
+      updates.rate = updates.hourlyRate;
+      delete updates.hourlyRate;
+    }
+
+    if (updates.role !== undefined && updates.profession === undefined) {
+      updates.profession = updates.role;
+      delete updates.role;
+    }
+
+    if (updates.paymentNotes !== undefined && updates.bank === undefined) {
+      updates.bank = updates.paymentNotes;
+      delete updates.paymentNotes;
+    }
+
+    if (updates.email) {
+      const cleanEmail = String(updates.email).trim().toLowerCase();
+      updates.email = cleanEmail;
+      const existing = await User.findOne({ email: cleanEmail, _id: { $ne: req.userId } });
+      if (existing) {
+        return res.status(400).json({ error: 'An account with this email already exists' });
+      }
+    }
+
+    if (updates.profession !== undefined && typeof updates.profession === 'string') {
+      updates.profession = updates.profession.trim();
+    }
+
+    if (updates.bank !== undefined && typeof updates.bank === 'string') {
+      updates.bank = updates.bank.trim();
+    }
 
     const updated = await User.findByIdAndUpdate(
       req.userId,
@@ -39,7 +78,8 @@ router.put('/', async (req: AuthenticatedRequest, res: Response) => {
     return res.json(updated);
   } catch (err) {
     console.error('[Update User Error]', err);
-    return res.status(500).json({ error: 'Failed to update user settings' });
+    const message = err instanceof Error ? err.message : 'Failed to update user settings';
+    return res.status(500).json({ error: message });
   }
 });
 

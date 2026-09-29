@@ -45,26 +45,41 @@ export function SettingsView({
   const [bank, setBank] = useState(settings.bank || '');
   const [prefix, setPrefix] = useState(settings.prefix || 'INV');
 
+  // Keep form inputs synchronized whenever `settings` prop updates (e.g. from apiGetMe or parent update)
+  const [prevSettings, setPrevSettings] = useState(settings);
+  if (settings !== prevSettings) {
+    setPrevSettings(settings);
+    setName(settings.name || '');
+    setProfession(settings.profession || '');
+    setEmail(settings.email || '');
+    setLocation(settings.location || '');
+    setRate(settings.rate ?? 1500);
+    setBiz(settings.biz || '');
+    setGst(settings.gst || '');
+    setBank(settings.bank || '');
+    setPrefix(settings.prefix || 'INV');
+  }
+
+  const getCurrentSettingsPayload = (): UserSettings => ({
+    ...settings,
+    name: name.trim(),
+    profession: profession.trim(),
+    email: email.trim(),
+    location: location.trim(),
+    rate: Number(rate) || 0,
+    biz: biz.trim(),
+    gst: gst.trim(),
+    bank: bank.trim(),
+    prefix: prefix.trim() || 'INV'
+  });
+
   const handleSaveProfile = () => {
-    onSaveSettings({
-      ...settings,
-      name,
-      profession,
-      email,
-      location,
-      rate
-    });
+    onSaveSettings(getCurrentSettingsPayload());
     toast('Profile details updated successfully!');
   };
 
   const handleSaveInvoicing = () => {
-    onSaveSettings({
-      ...settings,
-      biz,
-      gst,
-      bank,
-      prefix
-    });
+    onSaveSettings(getCurrentSettingsPayload());
     toast('Invoicing settings saved!');
   };
 

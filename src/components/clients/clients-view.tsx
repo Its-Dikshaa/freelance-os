@@ -1,18 +1,27 @@
 'use client';
 
 import React from 'react';
-import { Client } from '@/types';
+import { Client, Project, Invoice } from '@/types';
 import { fmF } from '@/lib/storage';
 import { Edit2, Trash2 } from 'lucide-react';
 
 interface ClientsViewProps {
   clients: Client[];
+  projects?: Project[];
+  invoices?: Invoice[];
   onOpenModal: (type: 'client', id?: string) => void;
   onConfirmDelete: (type: 'client', id: string) => void;
   searchText: string;
 }
 
-export function ClientsView({ clients, onOpenModal, onConfirmDelete, searchText }: ClientsViewProps) {
+export function ClientsView({
+  clients,
+  projects = [],
+  invoices = [],
+  onOpenModal,
+  onConfirmDelete,
+  searchText
+}: ClientsViewProps) {
   let list = [...clients];
   if (searchText) {
     list = list.filter(c =>
@@ -33,35 +42,52 @@ export function ClientsView({ clients, onOpenModal, onConfirmDelete, searchText 
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-          {list.map(c => (
-            <div key={c.id} className="bg-white border border-[#e8e1d7] rounded-[18px] p-5 shadow-sm hover:-translate-y-1 hover:shadow-md transition-all">
-              <div className="flex items-center gap-3 mb-4">
-                <div
-                  className="w-11 h-11 rounded-[12px] flex items-center justify-center font-serif-playfair text-[14px] font-medium shrink-0"
-                  style={{ backgroundColor: `${c.color}15`, color: c.color }}
-                >
-                  {c.initials || c.name.slice(0, 2).toUpperCase()}
-                </div>
-                <div>
-                  <div className="text-[14px] font-medium text-[#2c2825]">{c.name}</div>
-                  <div className="text-[11px] text-[#b5a898]">{c.industry}</div>
-                </div>
-              </div>
+          {list.map(c => {
+            const clientProjectsCount = projects.filter(
+              p => p.client?.toLowerCase().trim() === c.name?.toLowerCase().trim()
+            ).length || c.projects || 0;
 
-              <div className="space-y-1.5 text-[12px] border-t border-[#f0ebe3] pt-3">
-                <div className="flex justify-between">
-                  <span className="text-[#b5a898]">Email</span>
-                  <strong className="text-[#2c2825] font-medium truncate max-w-[170px]">{c.email || '—'}</strong>
+            const paidInvoicesTotal = invoices
+              .filter(
+                i => i.client?.toLowerCase().trim() === c.name?.toLowerCase().trim() && i.status === 'Paid'
+              )
+              .reduce((sum, inv) => sum + Number(inv.amount), 0);
+
+            const displayRevenue = paidInvoicesTotal || c.value || 0;
+
+            return (
+              <div key={c.id} className="bg-white border border-[#e8e1d7] rounded-[18px] p-5 shadow-sm hover:-translate-y-1 hover:shadow-md transition-all">
+                <div className="flex items-center gap-3 mb-4">
+                  <div
+                    className="w-11 h-11 rounded-[12px] flex items-center justify-center font-serif-playfair text-[14px] font-medium shrink-0"
+                    style={{ backgroundColor: `${c.color}15`, color: c.color }}
+                  >
+                    {c.initials || c.name.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div>
+                    <div className="text-[14px] font-medium text-[#2c2825]">{c.name}</div>
+                    <div className="text-[11px] text-[#b5a898]">{c.industry}</div>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-[#b5a898]">Phone</span>
-                  <span className="text-[#4a4440]">{c.phone || '—'}</span>
+
+                <div className="space-y-1.5 text-[12px] border-t border-[#f0ebe3] pt-3">
+                  <div className="flex justify-between">
+                    <span className="text-[#b5a898]">Email</span>
+                    <strong className="text-[#2c2825] font-medium truncate max-w-[170px]">{c.email || '—'}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#b5a898]">Phone</span>
+                    <span className="text-[#4a4440]">{c.phone || '—'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#b5a898]">Active Projects</span>
+                    <span className="text-[#2c2825] font-medium">{clientProjectsCount}</span>
+                  </div>
+                  <div className="flex justify-between pt-1">
+                    <span className="text-[#b5a898]">Total Revenue</span>
+                    <strong className="text-[#3d5a4c] font-semibold">{fmF(displayRevenue)}</strong>
+                  </div>
                 </div>
-                <div className="flex justify-between pt-1">
-                  <span className="text-[#b5a898]">Total Revenue</span>
-                  <strong className="text-[#3d5a4c] font-semibold">{fmF(c.value)}</strong>
-                </div>
-              </div>
 
               <div className="flex gap-2 mt-4 pt-3 border-t border-[#f0ebe3]">
                 <button
@@ -78,7 +104,8 @@ export function ClientsView({ clients, onOpenModal, onConfirmDelete, searchText 
                 </button>
               </div>
             </div>
-          ))}
+          );
+        })}
         </div>
       )}
     </div>

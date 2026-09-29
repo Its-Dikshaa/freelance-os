@@ -17,24 +17,29 @@ const defaultProjects = [
   { id: "p6", name: "Ease Well Portal", client: "EaseWell Health", clientEmail: "care@easewell.in", budget: 35000, spent: 5000, progress: 14, status: "Pending", deadline: "2026-06-01", color: "#7aaec8", desc: "Wellness clinic patient dashboard" }
 ];
 
+const relDate = (days: number): string => {
+  const d = new Date(Date.now() + days * 86400000);
+  return d.toISOString().slice(0, 10);
+};
+
 const defaultTasks = [
-  { id: "t1", title: "Wireframes for CRM Leads", project: "FreightAxis CRM", status: "Todo", due: "Mar 25", priority: "High" },
-  { id: "t2", title: "Prototype interactions", project: "BrokerPad Redesign", status: "InProgress", due: "Mar 24", priority: "High" },
-  { id: "t3", title: "Client feedback review", project: "FreightAxis CRM", status: "Review", due: "Mar 22", priority: "Medium" },
-  { id: "t4", title: "Final handoff docs", project: "AgriRent Platform", status: "Done", due: "Mar 20", priority: "Low" },
-  { id: "t5", title: "User flow diagram", project: "PawPulse App", status: "InProgress", due: "Mar 30", priority: "Medium" },
-  { id: "t6", title: "Color system finalization", project: "LuxPay Dashboard", status: "Todo", due: "Mar 28", priority: "Low" },
-  { id: "t7", title: "Competitive analysis", project: "Ease Well Portal", status: "Todo", due: "Apr 2", priority: "Low" },
-  { id: "t8", title: "Component library", project: "BrokerPad Redesign", status: "InProgress", due: "Mar 26", priority: "High" }
+  { id: "t1", title: "Wireframes for CRM Leads", project: "FreightAxis CRM", status: "Todo", due: relDate(3), priority: "High" },
+  { id: "t2", title: "Prototype interactions", project: "BrokerPad Redesign", status: "InProgress", due: relDate(5), priority: "High" },
+  { id: "t3", title: "Client feedback review", project: "FreightAxis CRM", status: "Review", due: relDate(-2), priority: "Medium" },
+  { id: "t4", title: "Final handoff docs", project: "AgriRent Platform", status: "Done", due: relDate(-7), priority: "Low" },
+  { id: "t5", title: "User flow diagram", project: "PawPulse App", status: "InProgress", due: relDate(7), priority: "Medium" },
+  { id: "t6", title: "Color system finalization", project: "LuxPay Dashboard", status: "Todo", due: relDate(10), priority: "Low" },
+  { id: "t7", title: "Competitive analysis", project: "Ease Well Portal", status: "Todo", due: relDate(12), priority: "Low" },
+  { id: "t8", title: "Component library", project: "BrokerPad Redesign", status: "InProgress", due: relDate(4), priority: "High" }
 ];
 
 const defaultClients = [
-  { id: "c1", name: "Rohan Sharma", industry: "Logistics", email: "rohan@logitech.io", phone: "+91 98765 43210", value: 125000, status: "Active", projects: 2, color: "#3d5a4c", initials: "RS", notes: "Long-term retainer client" },
-  { id: "c2", name: "Sarah Jenkins", industry: "Real Estate", email: "sarah@brokerpad.com", phone: "+1 415 555 0192", value: 55000, status: "Active", projects: 1, color: "#c4623a", initials: "SJ", notes: "" },
-  { id: "c3", name: "Ananya Roy", industry: "Pet Care", email: "ananya@petworld.co", phone: "+91 91234 56789", value: 40000, status: "Active", projects: 1, color: "#4a7fa5", initials: "AR", notes: "" },
-  { id: "c4", name: "Vikram Malhotra", industry: "FinTech", email: "vikram@luxpay.io", phone: "+91 99887 76655", value: 70000, status: "Active", projects: 1, color: "#c9963e", initials: "VM", notes: "" },
-  { id: "c5", name: "David Miller", industry: "Agriculture", email: "david@agrirent.org", phone: "+1 212 555 0143", value: 95000, status: "Active", projects: 1, color: "#4e7360", initials: "DM", notes: "" },
-  { id: "c6", name: "Pooja Verma", industry: "Healthcare", email: "pooja@easewell.in", phone: "+91 98111 22334", value: 35000, status: "Lead", projects: 1, color: "#7a5c8a", initials: "PV", notes: "Referred by EaseWell ops team" }
+  { id: "c1", name: "LogiTech Ltd", industry: "Logistics", email: "rohan@logitech.io", phone: "+91 98765 43210", value: 85000, status: "Active", projects: 1, color: "#3d5a4c", initials: "LT", notes: "Primary Contact: Rohan Sharma · Long-term retainer client" },
+  { id: "c2", name: "BrokerPad Inc", industry: "Real Estate", email: "sarah@brokerpad.com", phone: "+1 415 555 0192", value: 30000, status: "Active", projects: 1, color: "#c4623a", initials: "BP", notes: "Primary Contact: Sarah Jenkins" },
+  { id: "c3", name: "PetWorld Pvt", industry: "Pet Care", email: "ananya@petworld.co", phone: "+91 91234 56789", value: 0, status: "Active", projects: 1, color: "#4a7fa5", initials: "PW", notes: "Primary Contact: Ananya Roy" },
+  { id: "c4", name: "LuxFinance", industry: "FinTech", email: "vikram@luxpay.io", phone: "+91 99887 76655", value: 0, status: "Active", projects: 1, color: "#c9963e", initials: "LF", notes: "Primary Contact: Vikram Malhotra" },
+  { id: "c5", name: "AgriTech Co", industry: "Agriculture", email: "david@agrirent.org", phone: "+1 212 555 0143", value: 35000, status: "Active", projects: 1, color: "#4e7360", initials: "AT", notes: "Primary Contact: David Miller" },
+  { id: "c6", name: "EaseWell Health", industry: "Healthcare", email: "pooja@easewell.in", phone: "+91 98111 22334", value: 0, status: "Lead", projects: 1, color: "#7a5c8a", initials: "EH", notes: "Primary Contact: Pooja Verma · Referred by ops team" }
 ];
 
 const defaultInvoices = [

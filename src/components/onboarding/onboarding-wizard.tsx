@@ -96,6 +96,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
         email,
         profession: profession || 'Freelancer',
         location,
+        rate,
         hourlyRate: rate,
         biz: biz || `${name || 'Freelancer'}'s Studio`,
         gst,
