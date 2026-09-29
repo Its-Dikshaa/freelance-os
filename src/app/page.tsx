@@ -16,7 +16,7 @@ import {
   apiCreateInvoice, apiUpdateInvoice, apiDeleteInvoice, apiUpdateUser,
   apiGetPayments, apiCreatePayment,
   apiCheckHealth, apiSeed,
-  apiGetMe, getAuthToken, clearAuthToken
+  apiGetMe, getAuthToken, clearAuthToken, AuthError
 } from '@/lib/api';
 import { toIsoDate, formatDisplayDate, isOverdue, getDaysDiff } from '@/lib/date-utils';
 import { AlertTriangle } from 'lucide-react';
@@ -50,17 +50,20 @@ function MainAppContent() {
   const { toast } = useToast();
 
   const isClient = useIsClient();
-  const [isOnboarded, setIsOnboarded] = useState(false);
+  const [isOnboarded, setIsOnboarded] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return Boolean(localStorage.getItem('fos_token') && localStorage.getItem(K.ob) === 'true');
+  });
   const [currentPg, setCurrentPg] = useState<PageId>('dashboard');
   const [isOpenMobile, setIsOpenMobile] = useState(false);
   const [searchText, setSearchText] = useState('');
 
-  // Main data states
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [payments, setPayments] = useState<Payment[]>([]);
+  // Main data states - initialized from localStorage so workspace renders immediately on refresh
+  const [projects, setProjects] = useState<Project[]>(() => ld(K.p, []));
+  const [clients, setClients] = useState<Client[]>(() => ld(K.c, []));
+  const [invoices, setInvoices] = useState<Invoice[]>(() => ld(K.i, []));
+  const [tasks, setTasks] = useState<Task[]>(() => ld(K.t, []));
+  const [payments, setPayments] = useState<Payment[]>(() => ld(K.pay, []));
   const [apiConnected, setApiConnected] = useState(false);
   const [settings, setSettings] = useState<UserSettings>(() => ld(K.s, defaultSettings));
   const [actLog, setActLog] = useState<ActivityItem[]>(() => ld(K.a, defaultActivity));
@@ -117,19 +120,10 @@ function MainAppContent() {
 
     try {
       const userMe = await apiGetMe();
-      if (!userMe) {
-        clearAuthToken();
-        setIsOnboarded(false);
-        setProjects([]);
-        setClients([]);
-        setInvoices([]);
-        setTasks([]);
-        setPayments([]);
-        return;
+      if (userMe) {
+        setSettings(userMe);
+        sv(K.s, userMe);
       }
-
-      setSettings(userMe);
-      sv(K.s, userMe);
       setIsOnboarded(true);
 
       const [apiP, apiC, apiI, apiT, apiPay] = await Promise.all([
@@ -140,14 +134,40 @@ function MainAppContent() {
         apiGetPayments()
       ]);
 
-      setProjects(apiP || []);
-      setClients(apiC || []);
-      setInvoices(apiI || []);
-      setTasks(apiT || []);
-      setPayments(apiPay || []);
+      if (apiP) {
+        setProjects(apiP);
+        sv(K.p, apiP);
+      }
+      if (apiC) {
+        setClients(apiC);
+        sv(K.c, apiC);
+      }
+      if (apiI) {
+        setInvoices(apiI);
+        sv(K.i, apiI);
+      }
+      if (apiT) {
+        setTasks(apiT);
+        sv(K.t, apiT);
+      }
+      if (apiPay) {
+        setPayments(apiPay);
+        sv(K.pay, apiPay);
+      }
     } catch (err) {
-      console.warn('[FreelanceOS] Auth check failed:', err);
-      setIsOnboarded(false);
+      if (err instanceof AuthError) {
+        clearAuthToken();
+        localStorage.removeItem(K.ob);
+        setIsOnboarded(false);
+        setProjects([]);
+        setClients([]);
+        setInvoices([]);
+        setTasks([]);
+        setPayments([]);
+        toast('Your session has expired. Please log in again.', 'info');
+      } else {
+        console.warn('[FreelanceOS] Auth check or network issue, maintaining local state:', err);
+      }
     }
   };
 
@@ -156,6 +176,7 @@ function MainAppContent() {
     // defined outside the effect in this canary eslint-plugin-react-hooks build.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadUserData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const addActivity = (text: string, color = '#3d5a4c') => {
@@ -447,11 +468,13 @@ function MainAppContent() {
       localStorage.removeItem(K.s);
       localStorage.removeItem(K.a);
       localStorage.removeItem(K.g);
+      localStorage.removeItem(K.pay);
       sessionStorage.clear();
       setProjects([]);
       setClients([]);
       setInvoices([]);
       setTasks([]);
+      setPayments([]);
       setSettings(defaultSettings);
       setActLog(defaultActivity);
       setGoalTarget(500000);
@@ -572,6 +595,7 @@ function MainAppContent() {
               onSaveSettings={handleSaveSettings}
               onShowOnboarding={() => {
                 localStorage.removeItem(K.ob);
+                clearAuthToken();
                 setIsOnboarded(false);
               }}
               onExportJSON={handleExportJSON}

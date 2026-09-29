@@ -94,6 +94,13 @@ export async function apiLogin(email: string, password?: string): Promise<{ toke
   return resData;
 }
 
+export class AuthError extends Error {
+  constructor(message = 'Unauthorized') {
+    super(message);
+    this.name = 'AuthError';
+  }
+}
+
 export async function apiGetMe(): Promise<UserSettings | null> {
   const token = getAuthToken();
   if (!token) return null;
@@ -103,9 +110,13 @@ export async function apiGetMe(): Promise<UserSettings | null> {
       headers: getAuthHeaders(),
       cache: 'no-store'
     });
+    if (res.status === 401 || res.status === 403) {
+      throw new AuthError('Session expired');
+    }
     if (!res.ok) return null;
     return await res.json();
-  } catch {
+  } catch (err) {
+    if (err instanceof AuthError) throw err;
     return null;
   }
 }

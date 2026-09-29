@@ -8,7 +8,8 @@ export const K = {
   s: 'fos_s',
   a: 'fos_a',
   g: 'fos_g',
-  ob: 'fos_user_onboarded'
+  ob: 'fos_user_onboarded',
+  pay: 'fos_pay'
 };
 
 export function uid(): string {
