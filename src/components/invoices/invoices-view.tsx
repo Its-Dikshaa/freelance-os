@@ -51,13 +51,15 @@ export function InvoicesView({
   const statusColors: Record<InvoiceStatus, string> = {
     Paid: '#3d5a4c',
     Unpaid: '#c9963e',
-    Overdue: '#c4623a'
+    Overdue: '#c4623a',
+    Partial: '#4a7fa5'
   };
 
   const statusBadges: Record<InvoiceStatus, string> = {
     Paid: 'bg-[#3d5a4c]/10 text-[#3d5a4c]',
     Unpaid: 'bg-[#c9963e]/12 text-[#c9963e]',
-    Overdue: 'bg-[#c4623a]/10 text-[#c4623a]'
+    Overdue: 'bg-[#c4623a]/10 text-[#c4623a]',
+    Partial: 'bg-[#4a7fa5]/12 text-[#4a7fa5]'
   };
 
   const handleOpenEmail = (inv: Invoice) => {

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Menu, Search, Plus } from 'lucide-react';
+import { Menu, Search, Plus, X } from 'lucide-react';
 import { PageId } from './sidebar';
 
 interface TopbarProps {
@@ -61,8 +61,8 @@ export function Topbar({ currentPg, onOpenMobile, searchText, onSearchChange, on
       </div>
 
       <div className="flex items-center gap-2.5">
-        <div className="hidden sm:flex items-center gap-2 bg-white border border-[#e8e1d7] rounded-[10px] px-3 py-1.5 w-[200px] focus-within:border-[#8fac99] focus-within:ring-2 focus-within:ring-[#8fac99]/20 transition-all">
-          <Search className="w-3.5 h-3.5 text-[#b5a898]" />
+        <div className="hidden sm:flex items-center gap-2 bg-white border border-[#e8e1d7] rounded-[10px] px-3 py-1.5 w-[220px] focus-within:border-[#3d5a4c] focus-within:ring-2 focus-within:ring-[#3d5a4c]/15 transition-all">
+          <Search className="w-3.5 h-3.5 text-[#b5a898] shrink-0" />
           <input
             type="text"
             value={searchText}
@@ -70,7 +70,17 @@ export function Topbar({ currentPg, onOpenMobile, searchText, onSearchChange, on
             placeholder="Search..."
             className="bg-transparent border-none outline-none text-[12.5px] text-[#4a4440] w-full font-sans-outfit placeholder:text-[#b5a898]"
           />
+          {searchText && (
+            <button
+              onClick={() => onSearchChange('')}
+              className="text-[#b5a898] hover:text-[#2c2825] p-0.5 rounded transition-colors"
+              title="Clear search"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
+
 
         {btnLabel && (
           <button

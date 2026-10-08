@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useSyncExternalStore } from 'react';
 import {
-  Project, Client, Invoice, Task, Payment, UserSettings, ActivityItem, ProjectStatus, InvoiceStatus, TaskStatus
+  Project, Client, Invoice, Task, Payment, UserSettings, ActivityItem, ProjectStatus, InvoiceStatus, TaskStatus, TaskPriority
 } from '@/types';
 import {
   K, ld, sv, uid, rc, ini,
@@ -19,7 +19,7 @@ import {
   apiGetMe, getAuthToken, clearAuthToken
 } from '@/lib/api';
 import { toIsoDate, formatDisplayDate, isOverdue, getDaysDiff } from '@/lib/date-utils';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, UserPlus, Plus } from 'lucide-react';
 
 import { ToastProvider, useToast } from '@/components/ui/toast';
 import { Modal } from '@/components/ui/modal';
@@ -97,6 +97,13 @@ function MainAppContent() {
   const [formTProject, setFormTProject] = useState('');
   const [formTStatus, setFormTStatus] = useState<TaskStatus>('Todo');
   const [formTDue, setFormTDue] = useState('');
+  const [formTPriority, setFormTPriority] = useState<TaskPriority>('Medium');
+
+  // Quick Add Client Inline State (in Project / Invoice modal)
+  const [showQuickAddClient, setShowQuickAddClient] = useState(false);
+  const [quickCName, setQuickCName] = useState('');
+  const [quickCEmail, setQuickCEmail] = useState('');
+  const [quickCInd, setQuickCInd] = useState('');
 
   // Delete Confirm states
   const [confirmDeleteObj, setConfirmDeleteObj] = useState<{ type: 'project' | 'client' | 'invoice' | 'task'; id: string } | null>(null);
@@ -175,6 +182,10 @@ function MainAppContent() {
   const handleOpenModal = (type: 'project' | 'client' | 'invoice' | 'task', id?: string, extraStatus?: TaskStatus) => {
     setActiveModal(type);
     setEditId(id);
+    setShowQuickAddClient(false);
+    setQuickCName('');
+    setQuickCEmail('');
+    setQuickCInd('');
 
     if (type === 'project') {
       const item = projects.find(p => p.id === id) || {
@@ -213,19 +224,61 @@ function MainAppContent() {
       setFormIDesc(item.desc);
     } else if (type === 'task') {
       const item = tasks.find(t => t.id === id) || {
-        title: '', project: projects[0]?.name || '', due: new Date().toISOString().slice(0, 10), status: extraStatus || 'Todo'
+        title: '', project: projects[0]?.name || 'General', due: new Date().toISOString().slice(0, 10), status: extraStatus || 'Todo', priority: 'Medium' as TaskPriority
       };
       setFormTTitle(item.title);
-      setFormTProject(item.project || (projects[0]?.name || ''));
+      setFormTProject(item.project || (projects[0]?.name || 'General'));
       setFormTStatus(item.status);
       setFormTDue(toIsoDate(item.due || new Date().toISOString().slice(0, 10)));
+      setFormTPriority(item.priority || 'Medium');
     }
+
+  };
+
+  const handleQuickSaveClient = () => {
+    if (!quickCName.trim()) {
+      toast('Client name is required', 'error');
+      return;
+    }
+    const trimmedName = quickCName.trim();
+    const newClient: Client = {
+      id: uid(),
+      name: trimmedName,
+      industry: quickCInd.trim(),
+      email: quickCEmail.trim(),
+      phone: '',
+      notes: '',
+      projects: 0,
+      value: 0,
+      color: rc(),
+      initials: ini(trimmedName)
+    };
+    const updated = [newClient, ...clients];
+    setClients(updated);
+    sv(K.c, updated);
+
+    setFormPClient(trimmedName);
+    setFormIClient(trimmedName);
+
+    apiCreateClient(newClient).catch(err => toast(err.message || 'Failed to sync new client', 'error'));
+    addActivity(`New client added: ${trimmedName}`, '#c4623a');
+
+    setQuickCName('');
+    setQuickCEmail('');
+    setQuickCInd('');
+    setShowQuickAddClient(false);
+
+    toast(`Client "${trimmedName}" created & selected!`);
   };
 
   const handleSaveModal = () => {
     if (activeModal === 'project') {
       if (!formPName.trim()) {
         toast('Project name is required', 'error');
+        return;
+      }
+      if (!formPClient.trim()) {
+        toast('Please select or add a client for this project', 'error');
         return;
       }
       if (editId) {
@@ -291,15 +344,16 @@ function MainAppContent() {
         toast('Task title is required', 'error');
         return;
       }
+      const finalProject = formTProject || 'General';
       if (editId) {
-        const itemToUpdate = { title: formTTitle, project: formTProject, status: formTStatus, due: formTDue };
+        const itemToUpdate = { title: formTTitle, project: finalProject, status: formTStatus, due: formTDue, priority: formTPriority };
         const updated = tasks.map(t => t.id === editId ? { ...t, ...itemToUpdate } : t);
         setTasks(updated);
         sv(K.t, updated);
         apiUpdateTask(editId, itemToUpdate).catch(err => toast(err.message || 'Failed to sync task update', 'error'));
       } else {
         const newTask: Task = {
-          id: uid(), title: formTTitle, project: formTProject, status: formTStatus, due: formTDue
+          id: uid(), title: formTTitle, project: finalProject, status: formTStatus, due: formTDue, priority: formTPriority
         };
         const updated = [newTask, ...tasks];
         setTasks(updated);
@@ -307,6 +361,7 @@ function MainAppContent() {
         apiCreateTask(newTask).catch(err => toast(err.message || 'Failed to sync new task', 'error'));
       }
     }
+
 
     setActiveModal(null);
     toast(`${activeModal ? activeModal.charAt(0).toUpperCase() + activeModal.slice(1) : 'Item'} saved & synced with Express API!`);
@@ -491,6 +546,8 @@ function MainAppContent() {
           {currentPg === 'projects' && (
             <ProjectsView
               projects={projects}
+              tasks={tasks}
+              invoices={invoices}
               onOpenModal={handleOpenModal}
               onConfirmDelete={(type, id) => setConfirmDeleteObj({ type, id })}
               searchText={searchText}
@@ -510,6 +567,8 @@ function MainAppContent() {
           {currentPg === 'clients' && (
             <ClientsView
               clients={clients}
+              projects={projects}
+              invoices={invoices}
               onOpenModal={handleOpenModal}
               onConfirmDelete={(type, id) => setConfirmDeleteObj({ type, id })}
               searchText={searchText}
@@ -554,6 +613,21 @@ function MainAppContent() {
             />
           )}
         </main>
+
+        {/* FLOATING MOBILE QUICK ACTION FAB BUTTON */}
+        <button
+          onClick={() => {
+            if (currentPg === 'dashboard' || currentPg === 'projects') handleOpenModal('project');
+            else if (currentPg === 'tasks') handleOpenModal('task');
+            else if (currentPg === 'clients') handleOpenModal('client');
+            else if (currentPg === 'invoices') handleOpenModal('invoice');
+            else handleOpenModal('project');
+          }}
+          className="md:hidden fixed bottom-6 right-6 z-[400] bg-[#2c2825] text-white w-13 h-13 rounded-full flex items-center justify-center shadow-2xl hover:scale-105 active:scale-95 transition-all border border-[#e8c07a]/40"
+          aria-label="Quick Add"
+        >
+          <Plus className="w-6 h-6" />
+        </button>
       </div>
 
       {/* DYNAMIC FORMS MODAL */}
@@ -580,14 +654,94 @@ function MainAppContent() {
               />
             </div>
             <div>
-              <label className="text-[10.5px] font-bold text-[#7a706a] uppercase tracking-wider block mb-1">Client *</label>
-              <select
-                value={formPClient}
-                onChange={e => setFormPClient(e.target.value)}
-                className="w-full bg-[#f7f4ef] border border-[#e8e1d7] rounded-[10px] px-3.5 py-2.5 text-[13px] outline-none cursor-pointer"
-              >
-                {clients.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-              </select>
+              <div className="flex justify-between items-center mb-1">
+                <label className="text-[10.5px] font-bold text-[#7a706a] uppercase tracking-wider block">Client *</label>
+                <button
+                  type="button"
+                  onClick={() => setShowQuickAddClient(!showQuickAddClient)}
+                  className="text-[11px] font-semibold text-[#3d5a4c] hover:text-[#2c4036] flex items-center gap-1 cursor-pointer transition-colors"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  {showQuickAddClient ? 'Back to select' : '+ Add New Client'}
+                </button>
+              </div>
+
+              {showQuickAddClient ? (
+                <div className="bg-[#f7f4ef] border border-[#e8e1d7] rounded-[12px] p-3.5 space-y-3 animate-fade-up">
+                  <div className="flex justify-between items-center text-[12px] font-bold text-[#2c2825]">
+                    <span>Quick Add Client</span>
+                    <span className="text-[10.5px] font-normal text-[#8c827a]">Will auto-select for project</span>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-[#7a706a] uppercase tracking-wider block mb-1">Client / Business Name *</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Acme Corp or John Doe"
+                      value={quickCName}
+                      onChange={e => setQuickCName(e.target.value)}
+                      className="w-full bg-white border border-[#e8e1d7] rounded-[8px] px-3 py-2 text-[12.5px] outline-none font-sans-outfit focus:border-[#3d5a4c]"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] font-bold text-[#7a706a] uppercase tracking-wider block mb-1">Email (Optional)</label>
+                      <input
+                        type="email"
+                        placeholder="client@acme.com"
+                        value={quickCEmail}
+                        onChange={e => setQuickCEmail(e.target.value)}
+                        className="w-full bg-white border border-[#e8e1d7] rounded-[8px] px-3 py-1.5 text-[12px] outline-none font-sans-outfit focus:border-[#3d5a4c]"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-[#7a706a] uppercase tracking-wider block mb-1">Industry (Optional)</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Design / Tech"
+                        value={quickCInd}
+                        onChange={e => setQuickCInd(e.target.value)}
+                        className="w-full bg-white border border-[#e8e1d7] rounded-[8px] px-3 py-1.5 text-[12px] outline-none font-sans-outfit focus:border-[#3d5a4c]"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowQuickAddClient(false)}
+                      className="px-3 py-1 text-[11.5px] font-medium text-[#7a706a] hover:text-[#2c2825] cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleQuickSaveClient}
+                      className="px-3.5 py-1 text-[11.5px] font-semibold bg-[#3d5a4c] text-white rounded-[7px] hover:bg-[#2e4539] transition-all cursor-pointer shadow-sm flex items-center gap-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Save & Select Client
+                    </button>
+                  </div>
+                </div>
+              ) : clients.length === 0 ? (
+                <div className="bg-[#f7f4ef] border border-dashed border-[#c9963e]/50 rounded-[12px] p-3.5 text-center space-y-2">
+                  <p className="text-[12px] text-[#7a706a]">No clients found in your workspace yet.</p>
+                  <button
+                    type="button"
+                    onClick={() => setShowQuickAddClient(true)}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[8px] text-[12px] font-semibold bg-[#3d5a4c] text-white hover:bg-[#2e4539] transition-all cursor-pointer shadow-sm"
+                  >
+                    <UserPlus className="w-3.5 h-3.5" /> + Add Client First
+                  </button>
+                </div>
+              ) : (
+                <select
+                  value={formPClient}
+                  onChange={e => setFormPClient(e.target.value)}
+                  className="w-full bg-[#f7f4ef] border border-[#e8e1d7] rounded-[10px] px-3.5 py-2.5 text-[13px] outline-none cursor-pointer focus:border-[#3d5a4c]"
+                >
+                  {clients.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                </select>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -726,14 +880,94 @@ function MainAppContent() {
               </div>
             </div>
             <div>
-              <label className="text-[10.5px] font-bold text-[#7a706a] uppercase tracking-wider block mb-1">Client *</label>
-              <select
-                value={formIClient}
-                onChange={e => setFormIClient(e.target.value)}
-                className="w-full bg-[#f7f4ef] border border-[#e8e1d7] rounded-[10px] px-3.5 py-2.5 text-[13px] outline-none cursor-pointer"
-              >
-                {clients.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-              </select>
+              <div className="flex justify-between items-center mb-1">
+                <label className="text-[10.5px] font-bold text-[#7a706a] uppercase tracking-wider block">Client *</label>
+                <button
+                  type="button"
+                  onClick={() => setShowQuickAddClient(!showQuickAddClient)}
+                  className="text-[11px] font-semibold text-[#3d5a4c] hover:text-[#2c4036] flex items-center gap-1 cursor-pointer transition-colors"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  {showQuickAddClient ? 'Back to select' : '+ Add New Client'}
+                </button>
+              </div>
+
+              {showQuickAddClient ? (
+                <div className="bg-[#f7f4ef] border border-[#e8e1d7] rounded-[12px] p-3.5 space-y-3 animate-fade-up">
+                  <div className="flex justify-between items-center text-[12px] font-bold text-[#2c2825]">
+                    <span>Quick Add Client</span>
+                    <span className="text-[10.5px] font-normal text-[#8c827a]">Will auto-select for invoice</span>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-[#7a706a] uppercase tracking-wider block mb-1">Client / Business Name *</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Acme Corp or John Doe"
+                      value={quickCName}
+                      onChange={e => setQuickCName(e.target.value)}
+                      className="w-full bg-white border border-[#e8e1d7] rounded-[8px] px-3 py-2 text-[12.5px] outline-none font-sans-outfit focus:border-[#3d5a4c]"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] font-bold text-[#7a706a] uppercase tracking-wider block mb-1">Email (Optional)</label>
+                      <input
+                        type="email"
+                        placeholder="client@acme.com"
+                        value={quickCEmail}
+                        onChange={e => setQuickCEmail(e.target.value)}
+                        className="w-full bg-white border border-[#e8e1d7] rounded-[8px] px-3 py-1.5 text-[12px] outline-none font-sans-outfit focus:border-[#3d5a4c]"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-[#7a706a] uppercase tracking-wider block mb-1">Industry (Optional)</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Design / Tech"
+                        value={quickCInd}
+                        onChange={e => setQuickCInd(e.target.value)}
+                        className="w-full bg-white border border-[#e8e1d7] rounded-[8px] px-3 py-1.5 text-[12px] outline-none font-sans-outfit focus:border-[#3d5a4c]"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowQuickAddClient(false)}
+                      className="px-3 py-1 text-[11.5px] font-medium text-[#7a706a] hover:text-[#2c2825] cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleQuickSaveClient}
+                      className="px-3.5 py-1 text-[11.5px] font-semibold bg-[#3d5a4c] text-white rounded-[7px] hover:bg-[#2e4539] transition-all cursor-pointer shadow-sm flex items-center gap-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Save & Select Client
+                    </button>
+                  </div>
+                </div>
+              ) : clients.length === 0 ? (
+                <div className="bg-[#f7f4ef] border border-dashed border-[#c9963e]/50 rounded-[12px] p-3.5 text-center space-y-2">
+                  <p className="text-[12px] text-[#7a706a]">No clients found in your workspace yet.</p>
+                  <button
+                    type="button"
+                    onClick={() => setShowQuickAddClient(true)}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[8px] text-[12px] font-semibold bg-[#3d5a4c] text-white hover:bg-[#2e4539] transition-all cursor-pointer shadow-sm"
+                  >
+                    <UserPlus className="w-3.5 h-3.5" /> + Add Client First
+                  </button>
+                </div>
+              ) : (
+                <select
+                  value={formIClient}
+                  onChange={e => setFormIClient(e.target.value)}
+                  className="w-full bg-[#f7f4ef] border border-[#e8e1d7] rounded-[10px] px-3.5 py-2.5 text-[13px] outline-none cursor-pointer focus:border-[#3d5a4c]"
+                >
+                  {clients.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                </select>
+              )}
             </div>
             <div>
               <label className="text-[10.5px] font-bold text-[#7a706a] uppercase tracking-wider block mb-1">Amount (₹) *</label>
@@ -796,16 +1030,17 @@ function MainAppContent() {
                 onChange={e => setFormTProject(e.target.value)}
                 className="w-full bg-[#f7f4ef] border border-[#e8e1d7] rounded-[10px] px-3.5 py-2.5 text-[13px] outline-none cursor-pointer focus:border-[#2c2825]"
               >
+                <option value="General">General / No Project</option>
                 {projects.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
               </select>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-2.5">
               <div>
                 <label className="text-[10.5px] font-bold text-[#7a706a] uppercase tracking-wider block mb-1">Status</label>
                 <select
                   value={formTStatus}
                   onChange={e => setFormTStatus(e.target.value as TaskStatus)}
-                  className="w-full bg-[#f7f4ef] border border-[#e8e1d7] rounded-[10px] px-3.5 py-2.5 text-[13px] outline-none cursor-pointer focus:border-[#2c2825]"
+                  className="w-full bg-[#f7f4ef] border border-[#e8e1d7] rounded-[10px] px-2.5 py-2.5 text-[12.5px] outline-none cursor-pointer focus:border-[#2c2825]"
                 >
                   <option value="Todo">To Do</option>
                   <option value="InProgress">In Progress</option>
@@ -814,12 +1049,24 @@ function MainAppContent() {
                 </select>
               </div>
               <div>
+                <label className="text-[10.5px] font-bold text-[#7a706a] uppercase tracking-wider block mb-1">Priority</label>
+                <select
+                  value={formTPriority}
+                  onChange={e => setFormTPriority(e.target.value as TaskPriority)}
+                  className="w-full bg-[#f7f4ef] border border-[#e8e1d7] rounded-[10px] px-2.5 py-2.5 text-[12.5px] outline-none cursor-pointer focus:border-[#2c2825]"
+                >
+                  <option value="Low">Low</option>
+                  <option value="Medium">Medium</option>
+                  <option value="High">High</option>
+                </select>
+              </div>
+              <div>
                 <label className="text-[10.5px] font-bold text-[#7a706a] uppercase tracking-wider block mb-1">Due Date</label>
                 <input
                   type="date"
                   value={toIsoDate(formTDue)}
                   onChange={e => setFormTDue(e.target.value)}
-                  className="w-full bg-[#f7f4ef] border border-[#e8e1d7] rounded-[10px] px-3.5 py-2.5 text-[13px] outline-none cursor-pointer font-sans-outfit text-[#2c2825] focus:border-[#2c2825]"
+                  className="w-full bg-[#f7f4ef] border border-[#e8e1d7] rounded-[10px] px-2.5 py-2.5 text-[12.5px] outline-none cursor-pointer font-sans-outfit text-[#2c2825] focus:border-[#2c2825]"
                 />
               </div>
             </div>
@@ -844,22 +1091,29 @@ function MainAppContent() {
             if (e.target === e.currentTarget) setConfirmDeleteObj(null);
           }}
         >
-          <div className="bg-white border border-[#e8e1d7] rounded-[18px] p-7 w-full max-w-[340px] text-center shadow-2xl animate-fade-up">
+          <div className="bg-white border border-[#e8e1d7] rounded-[18px] p-7 w-full max-w-[360px] text-center shadow-2xl animate-fade-up">
             <div className="text-3xl mb-3">🗑</div>
-            <h3 className="font-serif-playfair text-[17px] font-medium text-[#2c2825] mb-1">
+            <h3 className="font-serif-playfair text-[18px] font-semibold text-[#2c2825] mb-1.5 capitalize">
               Delete {confirmDeleteObj.type}?
             </h3>
-            <p className="text-[12.5px] text-[#b5a898] mb-5">This action cannot be undone.</p>
+            <p className="text-[12.5px] text-[#7a706a] mb-5 leading-relaxed">
+              Are you sure you want to delete <strong className="text-[#2c2825] font-semibold">"{
+                confirmDeleteObj.type === 'project' ? (projects.find(p => p.id === confirmDeleteObj.id)?.name || 'this project') :
+                confirmDeleteObj.type === 'client' ? (clients.find(c => c.id === confirmDeleteObj.id)?.name || 'this client') :
+                confirmDeleteObj.type === 'invoice' ? (invoices.find(i => i.id === confirmDeleteObj.id)?.num || 'this invoice') :
+                confirmDeleteObj.type === 'task' ? (tasks.find(t => t.id === confirmDeleteObj.id)?.title || 'this task') : 'this item'
+              }"</strong>? This action cannot be undone.
+            </p>
             <div className="flex gap-2.5">
               <button
                 onClick={() => setConfirmDeleteObj(null)}
-                className="flex-1 py-2.5 border border-[#e8e1d7] rounded-[9px] text-[12.5px] font-medium text-[#4a4440] hover:bg-[#f0ebe3]"
+                className="flex-1 py-2.5 border border-[#e8e1d7] rounded-[9px] text-[12.5px] font-medium text-[#4a4440] hover:bg-[#f0ebe3] transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={handleExecDelete}
-                className="flex-1 py-2.5 bg-[#c4623a] text-white rounded-[9px] text-[12.5px] font-medium hover:bg-[#c4623a]/90 shadow-md"
+                className="flex-1 py-2.5 bg-[#c4623a] text-white rounded-[9px] text-[12.5px] font-medium hover:bg-[#c4623a]/90 shadow-md transition-all cursor-pointer"
               >
                 Delete
               </button>

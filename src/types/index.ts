@@ -1,6 +1,7 @@
 export type ProjectStatus = 'Active' | 'Review' | 'Pending' | 'Done';
-export type InvoiceStatus = 'Paid' | 'Unpaid' | 'Overdue';
+export type InvoiceStatus = 'Paid' | 'Unpaid' | 'Overdue' | 'Partial';
 export type TaskStatus = 'Todo' | 'InProgress' | 'Review' | 'Done';
+export type TaskPriority = 'Low' | 'Medium' | 'High';
 
 export interface Project {
   id: string;
@@ -33,6 +34,7 @@ export interface Invoice {
   client: string;
   clientEmail?: string;
   amount: number;
+  paidAmount?: number;
   date: string;
   due: string;
   status: InvoiceStatus;
@@ -45,6 +47,7 @@ export interface Task {
   project: string;
   due: string;
   status: TaskStatus;
+  priority?: TaskPriority;
 }
 
 export interface UserSettings {
@@ -57,6 +60,7 @@ export interface UserSettings {
   gst: string;
   bank: string;
   prefix: string;
+  theme?: 'light' | 'dark';
 }
 
 export interface ActivityItem {
@@ -76,4 +80,5 @@ export interface Payment {
   method: string;
   status: 'Completed' | 'Processing' | 'Failed';
 }
+
 
