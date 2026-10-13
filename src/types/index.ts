@@ -50,6 +50,15 @@ export interface Task {
   priority?: TaskPriority;
 }
 
+export interface QuickPaymentMethod {
+  id: string;
+  name: string;
+  accountDetails: string;
+  qrCode?: string;
+  isDefault?: boolean;
+  notes?: string;
+}
+
 export interface UserSettings {
   name: string;
   profession: string;
@@ -61,7 +70,9 @@ export interface UserSettings {
   bank: string;
   prefix: string;
   theme?: 'light' | 'dark';
+  paymentMethods?: QuickPaymentMethod[];
 }
+
 
 export interface ActivityItem {
   id?: string;

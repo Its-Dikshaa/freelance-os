@@ -6,7 +6,7 @@ import { fmF } from '@/lib/storage';
 import { formatDisplayDate, getInvoiceStatus } from '@/lib/date-utils';
 import { API_BASE_URL, getAuthHeaders } from '@/lib/api';
 import { useToast } from '@/components/ui/toast';
-import { Eye, Edit2, Mail, CheckCircle2, Trash2, Download, X, Copy, AlertTriangle, Send } from 'lucide-react';
+import { Eye, Edit2, Mail, CheckCircle2, Trash2, Download, X, Copy, AlertTriangle, Send, QrCode, Zap } from 'lucide-react';
 
 interface InvoicesViewProps {
   invoices: Invoice[];
@@ -100,7 +100,27 @@ export function InvoicesView({
     detailsBlock += `Due Date      :  ${dueDateStr}\n`;
     detailsBlock += `──────────────────────────────`;
 
-    const body = `Dear ${inv.client},\n\nI hope you're doing well.\n\nPlease find your invoice details below:\n\n${detailsBlock}\n\nPayment Details:\n${settings.bank || 'diksha@upi'}\n\nPlease make the payment by the due date. Feel free to reach out if you have any questions.\n\nThank you for your trust and continued collaboration!\n\nWarm regards,\n${settings.name || 'Diksha Jangra'}\n${settings.profession || 'UI/UX Designer'}\n${settings.email || 'diksha@example.com'}`;
+    // Payment details block
+    const methods = settings.paymentMethods && settings.paymentMethods.length > 0
+      ? settings.paymentMethods
+      : null;
+
+    let paymentBlock = '';
+    if (methods) {
+      const primary = methods.find(m => m.isDefault) || methods[0];
+      paymentBlock = `• ${primary.name}: ${primary.accountDetails}`;
+      if (primary.notes) paymentBlock += ` (${primary.notes})`;
+      if (primary.qrCode) paymentBlock += ` [Instant QR Code Scanner included on invoice]`;
+
+      const others = methods.filter(m => m.id !== primary.id);
+      if (others.length > 0) {
+        paymentBlock += '\nAlternative Payment Options:\n' + others.map(o => `• ${o.name}: ${o.accountDetails}`).join('\n');
+      }
+    } else {
+      paymentBlock = settings.bank || 'diksha@upi';
+    }
+
+    const body = `Dear ${inv.client},\n\nI hope you're doing well.\n\nPlease find your invoice details below:\n\n${detailsBlock}\n\nPayment Details:\n${paymentBlock}\n\nPlease make the payment by the due date. Feel free to reach out if you have any questions.\n\nThank you for your trust and continued collaboration!\n\nWarm regards,\n${settings.name || 'Diksha Jangra'}\n${settings.profession || 'UI/UX Designer'}\n${settings.email || 'diksha@example.com'}`;
 
     setEmailBody(body);
   };
@@ -464,14 +484,79 @@ export function InvoicesView({
                   </div>
                 </div>
 
-                {/* Payment Banner Box */}
-                <div className="bg-[#f7f4ef] rounded-[10px] p-3.5 text-[12px] text-[#4a4440] border-l-4 border-[#8fac99] mb-3.5 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-base">💳</span>
-                    <span><strong>Payment:</strong> {settings.bank || 'diksha@upi'}</span>
-                  </div>
-                  {settings.gst && <span className="text-[11px] text-[#7a706a]">GSTIN: {settings.gst}</span>}
-                </div>
+                {/* Quick Payment & Instant Settlement Box */}
+                {(() => {
+                  const methods = settings.paymentMethods && settings.paymentMethods.length > 0
+                    ? settings.paymentMethods
+                    : null;
+                  const primaryMethod = methods ? (methods.find((m) => m.isDefault) || methods[0]) : null;
+                  const otherMethods = methods ? methods.filter((m) => m.id !== primaryMethod?.id) : [];
+
+                  return (
+                    <div className="bg-[#f7f4ef] rounded-[12px] p-4 text-[12px] text-[#4a4440] border border-[#e8e1d7] border-l-4 border-l-[#3d5a4c] mb-3.5 shadow-sm">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <span className="flex items-center justify-center w-5 h-5 rounded-full bg-[#3d5a4c]/10 text-[#3d5a4c]">
+                              <Zap className="w-3 h-3 fill-[#3d5a4c]" />
+                            </span>
+                            <span className="text-[13px] font-semibold text-[#2c2825] tracking-tight">
+                              Quick Payment Details
+                            </span>
+                            {primaryMethod && (
+                              <span className="px-2 py-0.5 rounded text-[10.5px] font-medium bg-[#3d5a4c]/10 text-[#3d5a4c]">
+                                {primaryMethod.name}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="text-[13px] font-mono font-semibold text-[#2c2825] bg-white border border-[#e8e1d7] rounded-md px-3 py-1.5 my-1.5 inline-block select-all shadow-xs">
+                            {primaryMethod ? primaryMethod.accountDetails : (settings.bank || 'diksha@upi')}
+                          </div>
+
+                          {primaryMethod?.notes && (
+                            <p className="text-[11px] text-[#7a706a] mt-0.5 leading-relaxed">
+                              {primaryMethod.notes}
+                            </p>
+                          )}
+
+                          {otherMethods.length > 0 && (
+                            <div className="mt-2.5 pt-2 border-t border-[#e8e1d7]/70 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[#7a706a]">
+                              <span className="font-semibold text-[#4a4440]">Other Payment Methods:</span>
+                              {otherMethods.map((m) => (
+                                <span key={m.id} className="bg-white/80 px-2 py-0.5 rounded border border-[#e8e1d7]">
+                                  <strong>{m.name}:</strong> {m.accountDetails}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+
+                          {settings.gst && (
+                            <div className="text-[11px] text-[#7a706a] mt-2">
+                              GSTIN: <span className="font-mono font-medium text-[#4a4440]">{settings.gst}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* QR Code Card (if uploaded) */}
+                        {primaryMethod?.qrCode && (
+                          <div className="flex flex-col items-center justify-center p-2.5 bg-white rounded-lg border border-[#e8e1d7] shadow-sm shrink-0">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={primaryMethod.qrCode}
+                              alt={`Scan to pay ${primaryMethod.name}`}
+                              style={{ width: '96px', height: '96px' }}
+                              className="w-24 h-24 object-contain rounded"
+                            />
+                            <div className="text-[10px] font-semibold text-[#3d5a4c] mt-1.5 flex items-center gap-1 tracking-tight">
+                              <QrCode className="w-3 h-3" /> Scan & Pay
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Notes & Payment Terms Box */}
                 <div className="bg-[#f7f4ef] rounded-[10px] p-3.5 text-[12px] text-[#7a706a] border-l-3 border-[#c9963e] mb-5">

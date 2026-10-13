@@ -69,8 +69,19 @@ export const defaultSettings: UserSettings = {
   biz: 'Diksha Design Studio',
   gst: '',
   bank: 'diksha@upi',
-  prefix: 'INV'
+  prefix: 'INV',
+  paymentMethods: [
+    {
+      id: 'pm-1',
+      name: 'Google Pay (UPI)',
+      accountDetails: 'diksha@upi',
+      qrCode: '',
+      isDefault: true,
+      notes: 'Scan & Pay directly via any UPI App'
+    }
+  ]
 };
+
 
 export const defaultActivity: ActivityItem[] = [];
 
